@@ -1,0 +1,21 @@
+# Codex headless config for the harness. `run` rewrites __BASE_URL__ and __MODEL__
+# from the turn's provider environment before every run; the rest is the package's
+# standing, least-privilege policy.
+model = "__MODEL__"
+model_provider = "deepseek-openai"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+check_for_update_on_startup = false
+
+[analytics]
+enabled = false
+
+[features]
+plugins = false
+
+[model_providers.deepseek-openai]
+name = "OpenAI-compatible provider (deepseek-openai)"
+base_url = "__BASE_URL__"
+env_key = "HG_PROVIDER_TOKEN"
+wire_api = "responses"
+requires_openai_auth = false

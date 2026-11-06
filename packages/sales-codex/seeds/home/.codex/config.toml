@@ -1,0 +1,29 @@
+# Codex headless config for the sales agent. `run` rewrites __BASE_URL__, __MODEL__
+# and __HOOK_PATH__ from the turn's environment before every run; the rest is the
+# package's standing, least-privilege policy.
+model = "__MODEL__"
+model_provider = "deepseek-openai"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+check_for_update_on_startup = false
+
+[analytics]
+enabled = false
+
+[features]
+plugins = false
+
+[model_providers.deepseek-openai]
+name = "OpenAI-compatible provider (deepseek-openai)"
+base_url = "__BASE_URL__"
+env_key = "HG_PROVIDER_TOKEN"
+wire_api = "responses"
+requires_openai_auth = false
+
+# The one hard control: every shell command the model proposes goes through this
+# hook, which denies the operations this agent must never perform (git remotes,
+# sending data out, installing software, destructive commands, writes outside the
+# workspace). Run with --dangerously-bypass-hook-trust so its JSON decisions bind.
+[[hooks.PreToolUse]]
+matcher = "Bash"
+command = "__HOOK_PATH__"

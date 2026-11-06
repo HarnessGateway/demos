@@ -1,0 +1,7 @@
+{"type":"thread.started","thread_id":"01a1afab-0072-7172-b3ed-de0462f951ec"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model metadata for `deepseek-v4-pro` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."}}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/bash -c \"printf 'hello-from-tool' && pwd\"","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/bash -c \"printf 'hello-from-tool' && pwd\"","aggregated_output":"hello-from-tool/tmp/workdir\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Mock reply 2: done."}}
+{"type":"turn.completed","usage":{"input_tokens":14,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":6,"reasoning_output_tokens":0}}
