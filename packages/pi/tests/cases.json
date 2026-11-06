@@ -1,0 +1,9 @@
+[
+  {"name": "text", "mode": "text-turn", "status": "completed"},
+  {"name": "tool", "mode": "tool-turn", "status": "completed", "shell": true},
+  {"name": "resumed", "mode": "resumed-turn", "status": "completed", "resume_from": "tool-turn"},
+  {"name": "resumed-after-kill", "mode": "resumed-after-kill", "status": "completed", "resume_from": "killed-turn"},
+  {"name": "provider-error", "mode": "provider-error", "status": "failed", "error_code": "authentication_error"},
+  {"name": "crashed", "mode": "crashed", "status": "failed", "error_code": "rate_limit_exceeded"},
+  {"name": "killed-midway", "mode": "killed-turn", "status": "failed"}
+]

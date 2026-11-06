@@ -1,5 +1,7 @@
 # Social media manager
 
+[`demo.mp4`](demo.mp4) records the social-claude-code package being built in the console and this app in use.
+
 A campaign manager for cross-posting: one piece of content (an article's URL, or pasted text) becomes a post for each
 platform in that platform's idiom and limits, with a cross-posting plan: the sequence and timing, a backlink from every
 post to the canonical URL tagged per platform (`utm_source=<platform>&utm_medium=social&utm_campaign=<slug>`), and

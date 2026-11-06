@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Installs the pinned Claude Code release into $HG_TOOLS by its npm distribution. The postinstall copies the
+# platform-native binary over the placeholder, so the package's install script must be allowed (npm blocks it by
+# default since npm 12).
+set -euo pipefail
+
+VERSION="${HG_PACKAGE_VERSION%-*}"
+npm install -g --prefix "$HG_TOOLS" --allow-scripts=@anthropic-ai/claude-code \
+  "@anthropic-ai/claude-code@${VERSION}"
+
+CLAUDE="$HG_TOOLS/bin/claude"
+if [ ! -x "$CLAUDE" ]; then
+  CLAUDE="$(command -v claude)"
+fi
+"$CLAUDE" --version
+echo "installed: $("$CLAUDE" --version 2>/dev/null || echo claude) into $HG_TOOLS"

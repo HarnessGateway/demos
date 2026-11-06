@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VER="${HG_PACKAGE_VERSION%-*}"
+mkdir -p "$HG_TOOLS"
+
+if [ ! -x "$HG_TOOLS/node_modules/.bin/pi" ]; then
+  npm install --no-audit --no-fund --prefix "$HG_TOOLS" "@mariozechner/pi-coding-agent@$VER"
+fi
+
+PI_VERSION="$("$HG_TOOLS/node_modules/.bin/pi" --version 2>&1 | tail -1)"
+echo "installed: pi $PI_VERSION"

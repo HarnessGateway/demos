@@ -1,5 +1,7 @@
 # CRM with a sales agent
 
+[`demo.mp4`](demo.mp4) records the sales-codex package being built in the console and this app in use.
+
 A small CRM, the kind an account executive lives in: accounts with contacts, deals and notes. Beside every account sits
 a **sales agent**: the [`sales-codex`](../packages/sales-codex/) harness package on HarnessGateway, OpenAI's Codex CLI
 tailored to this job. The rep asks it for an account brief, an outreach draft, a call plan or next steps, or anything

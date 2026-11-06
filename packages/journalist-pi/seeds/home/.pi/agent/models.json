@@ -1,0 +1,18 @@
+{
+  "providers": {
+    "anthropic": {
+      "baseUrl": "http://hg-door:8080",
+      "api": "anthropic-messages",
+      "models": [
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 200000,
+          "maxTokens": 16384
+        }
+      ]
+    }
+  }
+}

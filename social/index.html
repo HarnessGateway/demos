@@ -80,7 +80,7 @@ function calendar() {
 
 async function render() {
   side();
-  if (creating || !S.campaigns.length) { newForm(); return; }
+  if (creating || !S.campaigns.length) { if (drawn !== "new") { drawn = "new"; newForm(); } return; }
   const c = camp() || S.campaigns[0]; cur = c.id;
   $("title").textContent = c.title; $("sub").textContent = `${c.goal} · ${c.platforms.join(", ")}`;
   $("hact").innerHTML = pill(c.status, LABEL[c.status] || c.status);

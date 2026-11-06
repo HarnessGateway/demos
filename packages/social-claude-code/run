@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+"""One turn of Claude Code as a Responses stream.
+
+Runs `claude --print --output-format stream-json` against the turn's provider, maps its stream onto Responses
+events, keeps the CLI's own session id in HG_STATE for native resume, and falls back to the conversation history
+when there is no resumable session (a fork, a kill, another harness).
+"""
+import json
+import os
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import threading
+
+from hgkit import Emitter, Request
+
+# Request fields Claude Code has no flag for; named in metadata.hg_ignored_fields.
+IGNORED = ("temperature", "top_p", "max_output_tokens", "max_tool_calls")
+
+SESSION_MISSING = re.compile(r"no conversation found", re.I)
+EXIT_CODE = re.compile(r"^Exit code (\d+)\n?")
+
+req, out = Request.load(), Emitter()
+
+
+def claude_bin() -> str:
+    found = shutil.which("claude")
+    if found:
+        return found
+    tools = os.environ.get("HG_TOOLS", "")
+    return os.path.join(tools, "bin", "claude") if tools else "claude"
+
+
+def build_env() -> dict:
+    env = dict(os.environ)
+    model = req.model or "deepseek-v4-pro"
+    if req.provider:
+        env["ANTHROPIC_BASE_URL"] = req.provider.url            # the door, without /v1
+        env["ANTHROPIC_API_KEY"] = req.provider.token
+        env["ANTHROPIC_AUTH_TOKEN"] = req.provider.token
+    # Pin every model alias Claude Code may pick to the turn's model, so nothing leaves for a model the provider
+    # does not serve (background tasks, subagents, classifiers all resolve here too).
+    for name in ("ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
+                 "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_SMALL_FAST_MODEL",
+                 "CLAUDE_CODE_AUTO_MODE_MODEL", "CLAUDE_CODE_BG_CLASSIFIER_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
+                 "CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL"):
+        env[name] = model
+    # Headless: no telemetry, no update checks, no error reporting, no bug-command egress.
+    env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+    env["DISABLE_TELEMETRY"] = "1"
+    env["DISABLE_AUTOUPDATER"] = "1"
+    env["DISABLE_ERROR_REPORTING"] = "1"
+    env["DISABLE_BUG_COMMAND"] = "1"
+    env["CLAUDE_CODE_ENTRYPOINT"] = "sdk-cli"
+    env["CLAUDE_CODE_MAX_RETRIES"] = "3"
+    return env
+
+
+def base_args() -> list:
+    args = [claude_bin(), "-p", "--output-format", "stream-json", "--verbose",
+            "--include-partial-messages", "--system-prompt-snapshot", "off",
+            "--dangerously-skip-permissions", "--model", req.model]
+    if req.instructions:
+        args += ["--append-system-prompt", req.instructions]
+    effort = req.reasoning_effort
+    if effort:
+        args += ["--effort", effort]
+    fmt = req.text_format
+    if fmt and fmt.get("type") == "json_schema" and fmt.get("schema"):
+        args += ["--json-schema", json.dumps(fmt["schema"], ensure_ascii=False)]
+    if req.get("store") is False:
+        args += ["--no-session-persistence"]
+    return args
+
+
+def prompt_text() -> str:
+    names = req.place_inputs()
+    text = req.prompt
+    if names:
+        text = (text + "\n\nFiles you were given, in the workspace: " + ", ".join(names)).strip()
+    meta = req.get("metadata")
+    if isinstance(meta, dict):
+        bits = []
+        for key, value in meta.items():
+            if isinstance(value, list):
+                value = ", ".join(str(v) for v in value)
+            elif not isinstance(value, (str, int, float, bool)):
+                continue
+            bits.append(f"{key}={value}")
+        if bits:
+            text = (text + "\n\nRequest metadata: " + "; ".join(bits)).strip()
+    return text
+
+
+class Stream:
+    """One CLI stream, mapped to Responses events as it is read."""
+
+    def __init__(self) -> None:
+        self.session_id = ""
+        self.last_text = ""        # assistant text emitted so far, for partial-message dedup
+        self.last_think = ""       # reasoning emitted so far
+        self.pending: dict = {}    # tool_use_id -> {"name", "input", "handle"?}
+        self.result: dict | None = None
+
+    def _delta(self, kind: str, text: str) -> None:
+        if not text:
+            return
+        last = self.last_think if kind == "think" else self.last_text
+        if last and text.startswith(last):
+            chunk = text[len(last):]
+            if kind == "think":
+                self.last_think = text
+            else:
+                self.last_text = text
+            if chunk:
+                (out.think if kind == "think" else out.say)(chunk)
+        else:
+            if kind == "think":
+                self.last_think = text
+            else:
+                self.last_text = text
+            (out.think if kind == "think" else out.say)(text)
+
+    def line(self, raw: str) -> None:
+        line = raw.rstrip("\n")
+        try:
+            ev = json.loads(line)
+        except ValueError:
+            out.log("claude: " + line)
+            return
+        typ = ev.get("type")
+        sub = ev.get("subtype")
+        if typ == "system":
+            if sub == "init":
+                self.session_id = ev.get("session_id", "")
+                if self.session_id:
+                    req.state.set("session", self.session_id)     # saved the moment the CLI reports it
+            out.log("claude: " + line)                            # init / thinking_tokens / task_* are bookkeeping
+            return
+        if typ == "assistant":
+            for part in ev.get("message", {}).get("content") or []:
+                pt = part.get("type")
+                if pt == "thinking":
+                    self._delta("think", part.get("thinking", ""))
+                elif pt == "text":
+                    self._delta("say", part.get("text", ""))
+                elif pt == "tool_use":
+                    cid = part.get("id", "")
+                    name = part.get("name", "")
+                    inp = part.get("input") or {}
+                    if name == "Bash":
+                        handle = out.ran(inp.get("command", ""), call_id=cid)
+                        self.pending[cid] = {"name": name, "input": inp, "handle": handle}
+                    else:
+                        self.pending[cid] = {"name": name, "input": inp}
+            return
+        if typ == "user":
+            # Tool results close the streamed message and start a fresh one after.
+            self.last_text = self.last_think = ""
+            for part in ev.get("message", {}).get("content") or []:
+                if part.get("type") != "tool_result":
+                    continue
+                self.tool_result(part)
+            return
+        if typ == "result":
+            self.result = ev
+            final = ev.get("result")
+            if isinstance(final, str) and final and not ev.get("is_error"):
+                self._delta("say", final)                        # reconcile any text the stream missed
+            return
+        out.log("claude: " + line)
+
+    def tool_result(self, part: dict) -> None:
+        cid = part.get("tool_use_id", "")
+        content = part.get("content")
+        is_error = bool(part.get("is_error"))
+        entry = self.pending.pop(cid, None)
+        if entry is None:
+            out.log("claude: tool_result with no tool_use " + cid)
+            return
+        name, inp = entry["name"], entry["input"]
+        text = content if isinstance(content, str) else str(content or "")
+        if name == "Bash":
+            stdout, stderr, code = parse_bash(text, is_error)
+            entry["handle"].done(stdout=stdout, stderr=stderr, exit=code)
+        elif name == "Write":
+            out.wrote(inp.get("file_path", ""), inp.get("content", ""), ok=not is_error, output=text,
+                      call_id=cid)
+        elif name == "Edit":
+            out.edited(inp.get("file_path", ""), old=inp.get("old_string", "") or "",
+                       new=inp.get("new_string", "") or "", ok=not is_error, output=text, call_id=cid)
+        else:
+            out.used(name, inp, text, ok=not is_error, call_id=cid)
+
+
+def parse_bash(text: str, is_error: bool) -> tuple:
+    m = EXIT_CODE.match(text)
+    if m:
+        return text[m.end():], "", int(m.group(1))
+    if is_error:
+        return "", text, 1
+    return text, "", 0
+
+
+def usage(result: dict) -> dict:
+    u = result.get("usage") or {}
+    if u.get("input_tokens") is not None:
+        return {
+            "input": u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0)
+            + u.get("cache_creation_input_tokens", 0),
+            "output": u.get("output_tokens", 0),
+            "cached": u.get("cache_read_input_tokens", 0),
+            "cache_write": u.get("cache_creation_input_tokens", 0),
+            "reasoning": (u.get("output_tokens_details") or {}).get("thinking_tokens", 0),
+        }
+    inp = output = cached = cache_write = reasoning = 0
+    for v in (result.get("modelUsage") or {}).values():
+        inp += v.get("inputTokens", 0) + v.get("cacheReadInputTokens", 0) + v.get("cacheCreationInputTokens", 0)
+        output += v.get("outputTokens", 0)
+        cached += v.get("cacheReadInputTokens", 0)
+        cache_write += v.get("cacheCreationInputTokens", 0)
+        reasoning += v.get("thinkingTokens", 0)
+    return {"input": inp, "output": output, "cached": cached, "cache_write": cache_write, "reasoning": reasoning}
+
+
+def error_code(result: dict) -> str:
+    status = result.get("api_error_status")
+    if status == 401:
+        return "invalid_api_key"
+    if status == 429:
+        return "rate_limit_exceeded"
+    if status and status >= 500:
+        return "server_error"
+    if status == 400:
+        return "invalid_prompt"
+    return "cli_error"
+
+
+def message_of(result: dict) -> str:
+    errors = result.get("errors")
+    if isinstance(errors, list) and errors:
+        return "; ".join(str(e) for e in errors)
+    msg = result.get("result")
+    return msg if isinstance(msg, str) and msg else "Claude Code reported an error"
+
+
+def finish(stream: Stream, interrupted: bool, exit_code: int) -> None:
+    res = stream.result
+    meta = {"exit_code": str(exit_code)}
+    if stream.session_id:
+        meta["cli_session"] = stream.session_id
+    if res is not None:
+        if res.get("is_error"):
+            out.failed(error_code(res), message_of(res), metadata=meta, **usage(res))
+        elif res.get("stop_reason") == "max_tokens":
+            out.stopped("max_output_tokens", metadata=meta, **usage(res))
+        else:
+            out.done(metadata=meta, **usage(res))
+    elif interrupted:
+        out.failed("interrupted", "the turn was interrupted before Claude Code finished", metadata=meta)
+    else:
+        out.failed("cli_error", "Claude Code exited without a result", metadata=meta)
+
+
+def run_cli(prompt: str, resume: str) -> tuple:
+    """Run one CLI invocation, streaming its events. Returns (stream, exit_code)."""
+    args = base_args()
+    if resume:
+        args += ["--resume", resume]
+    args += [prompt]
+    stream = Stream()
+    proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, bufsize=1, env=build_env(), start_new_session=True)
+    errs: list[str] = []
+    interrupted = {"yes": False}
+
+    def drain_stderr() -> None:
+        for line in proc.stderr:
+            errs.append(line.rstrip("\n"))
+
+    def on_signal(signum, frame):
+        interrupted["yes"] = True
+        if proc.poll() is None:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except (ProcessLookupError, PermissionError, OSError):
+                proc.terminate()
+
+    threading.Thread(target=drain_stderr, daemon=True).start()
+    old_term, old_int = signal.signal(signal.SIGTERM, on_signal), signal.signal(signal.SIGINT, on_signal)
+    try:
+        for raw in proc.stdout:
+            stream.line(raw)
+        code = proc.wait()
+    finally:
+        signal.signal(signal.SIGTERM, old_term)
+        signal.signal(signal.SIGINT, old_int)
+    for e in errs:
+        out.log("claude stderr: " + e)
+    return stream, code, interrupted["yes"]
+
+
+def main() -> None:
+    ignored = [f for f in IGNORED if req.get(f) is not None]
+    if req.get("store") is False:
+        ignored.append("store")
+    out.ignored(ignored)
+
+    prompt = prompt_text()
+    history_text = req.transcript()
+    session_id = req.state.get("session")
+
+    if not prompt and not session_id and not history_text:
+        out.failed("invalid_prompt", "the input text is the request to work on")
+        return
+
+    stream = code = interrupted = None
+    if session_id:
+        stream, code, interrupted = run_cli(prompt or "(continue)", session_id)
+        res = stream.result
+        if res is not None and res.get("is_error") and (
+                SESSION_MISSING.search(message_of(res)) or res.get("subtype") == "error_during_execution"):
+            session_id = ""                       # the CLI refused the saved id: fall through to the history
+        else:
+            finish(stream, interrupted, code)
+            return
+
+    # Fresh session: give it the conversation from the history, when there is one.
+    if history_text:
+        prompt = "[Earlier in this conversation]\n" + history_text + "\n\n[The latest request]\n" + (prompt or "(continue)")
+    stream, code, interrupted = run_cli(prompt or "(continue)", "")
+    finish(stream, interrupted, code)
+
+
+if __name__ == "__main__":
+    main()

@@ -12,6 +12,11 @@ harness package builder in the console chat and installed from that session's wo
 | [`market-desk/`](market-desk/) | A commodities newsroom desk: scheduled and ad-hoc assignments, drafts with sources and a claims-to-verify list, editor review, a research thread. | [`packages/journalist-pi`](packages/journalist-pi/) | pi |
 | [`social/`](social/) | A social media manager: one piece of content becomes a post per platform in its idiom, with a cross-posting plan, backlinks tagged per platform and cross-links between the posts; a person edits, approves and schedules each. | [`packages/social-claude-code`](packages/social-claude-code/) | Claude Code |
 
+Each demo has a short recording, [`crm/demo.mp4`](crm/demo.mp4), [`market-desk/demo.mp4`](market-desk/demo.mp4) and
+[`social/demo.mp4`](social/demo.mp4): first the package being built in the console (the request to the harness package
+builder, the builder's session, **New harness from workspace**, **Install**), then the app in use with the agent's real
+output. The minutes the agent spends working are sped up and labelled as such; nothing else is cut.
+
 The platform is the same for all three: it runs each turn in a gVisor sandbox with the package's egress and secrets
 rules, keeps the session's workspace between turns, swaps a per-turn token for the organization's provider key at the
 gateway, and streams Responses events back. The apps never see a provider key, never run a CLI, and never hold more

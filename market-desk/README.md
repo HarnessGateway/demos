@@ -1,5 +1,7 @@
 # Market Desk
 
+[`demo.mp4`](demo.mp4) records the journalist-pi package being built in the console and this app in use.
+
 A commodities newsroom desk, run by its editors: a schedule of standing stories (the morning briefing, the EIA
 weekly data story, a policy explainer), ad-hoc assignments, a research thread, and a review step every draft goes
 through before it is approved. The journalist is the [`journalist-pi`](../packages/journalist-pi/) harness package

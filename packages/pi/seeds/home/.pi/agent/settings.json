@@ -1,0 +1,10 @@
+{
+  "defaultProvider": "anthropic",
+  "enableInstallTelemetry": false,
+  "warnings": {
+    "anthropicExtraUsage": false
+  },
+  "retry": {
+    "enabled": false
+  }
+}

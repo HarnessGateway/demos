@@ -1,0 +1,11 @@
+{
+  "contract": 1,
+  "name": "claude-code",
+  "version": "2.1.318-1",
+  "description": "Anthropic's Claude Code CLI, headless in the sandbox: each turn is one `claude --print` run against the session's provider, streamed back as Responses events. No standing instructions, permissions or hooks are added — the CLI as the vendor ships it, so it is the base to tailor for an organization's own agent.",
+  "provider": {"apis": ["anthropic"]},
+  "defaults": {"model": "deepseek-v4-pro"},
+  "install": {"egress": ["registry.npmjs.org"], "timeout_s": 1200},
+  "run": {"egress": ["*"], "stop_grace_s": 10},
+  "persist": [".claude/projects"]
+}

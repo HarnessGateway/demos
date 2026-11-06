@@ -83,8 +83,8 @@ class HG:
     @staticmethod
     def text(response: dict[str, Any]) -> str:
         """The assistant's prose in a Response."""
-        return "".join(c.get("text", "") for item in response.get("output", []) if item.get("type") == "message"
-                       for c in item.get("content", []))
+        return "\n\n".join(t for item in response.get("output", []) if item.get("type") == "message"
+                           for c in item.get("content", []) if (t := c.get("text", "").strip()))
 
     @staticmethod
     def steps(response: dict[str, Any]) -> list[dict[str, Any]]:
