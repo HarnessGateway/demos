@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Desk · journalist agent</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+:root { --bg:#faf9f5; --side:#f3f1ea; --card:#fff; --text:#1f1e1a; --soft:#4f4b42; --muted:#7d786c; --line:#e6e2d8;
+        --hover:#ece9e0; --accent:#e8732a; --navy:#163f7a; --ok:#2e8b57; --warn:#b7791f; --err:#c23b22; --bubble:#ecebe5; }
+* { box-sizing:border-box; }
+html, body { height:100%; margin:0; }
+body { display:flex; background:var(--bg); color:var(--text); font:14.5px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+button { font:inherit; color:inherit; cursor:pointer; }
+aside { width:244px; flex:none; background:var(--side); border-right:1px solid var(--line); display:flex; flex-direction:column; padding:18px 12px; gap:16px; }
+.brand { padding:0 8px; } .brand b { font-size:18px; letter-spacing:-.01em; } .brand b span { color:var(--accent); }
+.brand small { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
+select, input, textarea { font:inherit; color:var(--text); background:var(--card); border:1px solid var(--line); border-radius:10px; padding:8px 10px; width:100%; }
+textarea { resize:vertical; }
+nav { display:flex; flex-direction:column; gap:2px; }
+nav button { display:flex; align-items:center; gap:10px; border:0; background:none; text-align:left; padding:8px 10px; border-radius:10px; color:var(--soft); }
+nav button:hover { background:var(--hover); }
+nav button.on { background:var(--card); color:var(--text); box-shadow:inset 3px 0 0 var(--accent), 0 1px 2px rgba(0,0,0,.05); font-weight:600; }
+nav .n { margin-left:auto; background:var(--accent); color:#fff; font-size:11.5px; font-weight:700; border-radius:99px; padding:0 7px; }
+.side-foot { margin-top:auto; font-size:12px; color:var(--muted); padding:0 8px; display:flex; flex-direction:column; gap:10px; }
+.toggle { display:flex; align-items:center; gap:8px; color:var(--soft); font-size:13px; cursor:pointer; }
+.toggle input { width:auto; }
+main { flex:1; min-width:0; display:flex; flex-direction:column; }
+header { display:flex; align-items:center; gap:12px; padding:16px 26px; border-bottom:1px solid var(--line); background:var(--bg); }
+header h1 { font-size:19px; margin:0; letter-spacing:-.01em; } header .sub { color:var(--muted); font-size:13px; }
+header .grow { flex:1; }
+.btn { background:var(--accent); color:#fff; border:0; border-radius:10px; padding:8px 14px; font-weight:600; }
+.btn:disabled { opacity:.35; cursor:default; }
+.btn2 { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:7px 13px; }
+.btn2:hover { border-color:var(--accent); }
+.view { flex:1; overflow:auto; padding:20px 26px 40px; }
+h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:22px 0 10px; }
+h2:first-child { margin-top:0; }
+.rows { background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+.row { display:flex; align-items:center; gap:14px; padding:12px 16px; border-top:1px solid var(--line); }
+.row:first-child { border-top:0; }
+.row .time { width:64px; font-variant-numeric:tabular-nums; font-weight:600; color:var(--soft); }
+.row .what { flex:1; min-width:0; } .row .what b { display:block; } .row .what small { color:var(--muted); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pill { font-size:12px; font-weight:600; border-radius:99px; padding:2px 10px; white-space:nowrap; background:#eef0f3; color:var(--soft); }
+.pill.drafting, .pill.queued { background:#eef2f8; color:var(--navy); }
+.pill.drafting::before { content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:currentColor; margin-right:6px; animation:blink 1.2s infinite; }
+@keyframes blink { 50% { opacity:.25; } }
+.pill.review { background:#fdf0e6; color:#b5541a; } .pill.approved, .pill.answered { background:#e8f4ec; color:var(--ok); } .pill.failed { background:#fbeceb; color:var(--err); }
+.empty { color:var(--muted); padding:16px; }
+.new { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; display:grid; grid-template-columns:1fr 180px; gap:10px; }
+.new textarea { grid-column:1 / -1; min-height:60px; }
+/* review */
+.split { display:flex; gap:18px; height:100%; }
+.list { width:300px; flex:none; display:flex; flex-direction:column; gap:8px; overflow:auto; }
+.item { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; cursor:pointer; text-align:left; }
+.item:hover { border-color:var(--accent); } .item.on { border-color:var(--accent); box-shadow:0 0 0 2px rgba(232,115,42,.15); }
+.item b { display:block; font-size:14px; } .item .meta { display:flex; justify-content:space-between; align-items:center; margin-top:6px; color:var(--muted); font-size:12px; }
+.detail { flex:1; min-width:0; background:var(--card); border:1px solid var(--line); border-radius:14px; display:flex; flex-direction:column; overflow:hidden; }
+.dh { display:flex; align-items:center; gap:10px; padding:12px 18px; border-bottom:1px solid var(--line); }
+.dh b { font-size:16px; } .dh .grow { flex:1; }
+.tabs { display:flex; gap:4px; padding:8px 14px 0; border-bottom:1px solid var(--line); }
+.tabs button { border:0; background:none; padding:7px 13px; border-radius:8px 8px 0 0; color:var(--muted); }
+.tabs button.on { background:var(--bg); color:var(--text); font-weight:600; }
+.doc { flex:1; overflow:auto; padding:18px 26px; background:var(--bg); }
+.doc img { max-width:100%; border-radius:8px; border:1px solid var(--line); background:#fff; }
+.doc table { border-collapse:collapse; font-size:13px; margin:8px 0; } .doc td, .doc th { border:1px solid var(--line); padding:4px 8px; vertical-align:top; }
+.doc h1 { font-size:22px; letter-spacing:-.01em; } .doc h2 { font-size:16px; text-transform:none; letter-spacing:0; color:var(--text); margin:20px 0 6px; }
+.doc a { color:#2b64b8; word-break:break-all; }
+.claims { display:flex; flex-direction:column; gap:8px; }
+.claim { display:flex; gap:12px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; }
+.claim input { width:18px; height:18px; flex:none; margin-top:2px; accent-color:var(--ok); }
+.claim.done { border-color:#bfe0cb; background:#f6fbf8; }
+.claim small { display:block; color:var(--muted); margin-top:3px; word-break:break-all; }
+.acts { border-top:1px solid var(--line); padding:12px 18px; display:flex; gap:10px; align-items:flex-start; background:var(--card); }
+.acts textarea { flex:1; min-height:40px; height:40px; }
+.hist { font-size:12px; color:var(--muted); padding:8px 18px 12px; border-top:1px solid var(--line); background:var(--card); max-height:110px; overflow:auto; }
+.hist div { padding:1px 0; } .hist b { color:var(--soft); font-weight:600; }
+/* ask */
+.thread { max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+.q { align-self:flex-end; background:var(--bubble); border-radius:18px; padding:9px 16px; max-width:75%; white-space:pre-wrap; }
+.a { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; }
+.a .doc { padding:0; background:none; overflow:visible; }
+.askbar[hidden] { display:none; }
+.askbar { border-top:1px solid var(--line); padding:12px 26px; display:flex; gap:10px; background:var(--bg); }
+.askbar textarea { min-height:44px; height:44px; max-width:none; }
+.calls { font:12px/1.5 ui-monospace,Menlo,monospace; color:var(--muted); padding:0 8px; white-space:pre-wrap; word-break:break-word; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><b>Market <span>Desk</span></b><small>Drafts for the desk; editors decide</small></div>
+  <select id="desk"></select>
+  <nav id="nav"></nav>
+  <div class="side-foot">
+    <label class="toggle"><input type="checkbox" id="auto"> Run the schedule automatically</label>
+    <div>Editor <input id="editor" style="display:inline;width:110px;padding:2px 6px"><br><br>Agent: the <b>journalist-pi</b> harness package, called over the OpenAI Responses API on HarnessGateway.</div>
+  </div>
+</aside>
+<main>
+  <header><div><h1 id="title"></h1><div class="sub" id="sub"></div></div><div class="grow"></div><div id="hact"></div></header>
+  <div class="view" id="view"></div>
+  <div class="askbar" id="askbar" hidden><textarea id="askq" placeholder="Ask the desk a research question. Answers come with sources."></textarea><button class="btn" id="askgo">Ask</button></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const post = async (path, body) => { const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body || {}) }); return r.json(); };
+const fileUrl = (job, f) => `/ws/${job.session_id}/${f.id}`;
+const text = async (job, rel) => { const f = job.files.find(f => f.rel === rel); return f ? (await fetch(fileUrl(job, f))).text() : ""; };
+const LABEL = { queued: "queued", drafting: "drafting", review: "ready for review", approved: "approved", failed: "failed", answered: "answered" };
+const ago = t => { const s = Math.round(Date.now() / 1000 - t); return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${Math.floor(s / 3600)}h`; };
+const clock = t => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const pill = j => j ? `<span class="pill ${j.status}">${LABEL[j.status] || j.status}${j.status === "drafting" ? " · " + ago(j.started || j.created) : ""}</span>` : `<span class="pill">scheduled</span>`;
+let S = null, view = "today", sel = null, drawn = "", tab = "Draft";
+const ticks = JSON.parse(localStorage.getItem("md-ticks") || "{}");
+
+function md(job, src) {                                   // markdown with the draft's own charts resolved
+  const div = document.createElement("div"); div.innerHTML = marked.parse(src || "");
+  div.querySelectorAll("img").forEach(img => {
+    const rel = (img.getAttribute("src") || "").replace(/^\.\//, "");
+    const f = job.files.find(f => f.rel === rel) || job.files.find(f => f.rel.endsWith("/" + rel.split("/").pop()));
+    if (f) img.src = fileUrl(job, f);
+  });
+  div.querySelectorAll("a").forEach(a => a.target = "_blank");
+  return div.innerHTML;
+}
+function claimsOf(verify) {                               // the verify list's claims table, or its bullet items
+  const lines = verify.split("\n"), out = [];
+  for (let i = 0; i < lines.length - 1; i++) {
+    const head = lines[i].trim();
+    if (!head.startsWith("|") || !/claim/i.test(head) || !/^\|[\s:|-]+\|$/.test(lines[i + 1].trim())) continue;
+    const cols = head.split("|").slice(1, -1).map(c => c.trim().toLowerCase());
+    for (let j = i + 2; j < lines.length && lines[j].trim().startsWith("|"); j++) {
+      const cells = lines[j].trim().split("|").slice(1, -1).map(c => c.trim());
+      const get = k => cells[cols.findIndex(c => c.includes(k))] || "";
+      out.push({ claim: get("claim"), source: get("source"), status: get("status"), note: get("note") });
+    }
+    if (out.length) return out;
+  }
+  for (const l of lines) { const m = l.match(/^\s*[-*]\s+(?:\[[ x]\]\s*)?(.+)/); if (m) out.push({ claim: m[1] }); }
+  return out;
+}
+
+function nav() {
+  const desk = $("desk").value, mine = S.jobs.filter(j => j.desk === desk);
+  const n = { review: mine.filter(j => j.status === "review").length };
+  $("nav").innerHTML = [["today", "Today"], ["review", "Review"], ["ask", "Ask"], ["archive", "Archive"]]
+    .map(([k, t]) => `<button data-v="${k}" class="${view === k ? "on" : ""}">${t}${n[k] ? `<span class="n">${n[k]}</span>` : ""}</button>`).join("");
+  $("nav").querySelectorAll("button").forEach(b => b.onclick = () => { view = b.dataset.v; drawn = ""; render(); });
+}
+
+function today() {
+  const desk = $("desk").value, slots = S.slots.filter(s => s.desk === desk), jobs = S.jobs.filter(j => j.desk === desk && j.day === S.today);
+  const byId = Object.fromEntries(S.jobs.map(j => [j.id, j]));
+  $("title").textContent = "Today"; $("sub").textContent = `${new Date(S.today + "T12:00").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} · ${S.now} ET`;
+  const pending = slots.filter(s => s.today && !s.job_id).length;
+  $("hact").innerHTML = `<button class="btn" id="startday" ${pending ? "" : "disabled"}>Start the day${pending ? ` (${pending})` : ""}</button>`;
+  $("startday").onclick = async () => { await post("/app/start-day", { desk }); refresh(); };
+  const slotRow = s => { const j = byId[s.job_id]; return `<div class="row"><span class="time">${s.time}</span><div class="what"><b>${esc(s.title)}</b><small>${esc(s.prompt)}</small></div>${pill(j)}
+    ${j ? `<button class="btn2" data-open="${j.id}">Open</button>` : `<button class="btn2" data-run="${s.id}">${s.today ? "Run now" : "Run early"}</button>`}</div>`; };
+  const adhoc = jobs.filter(j => j.kind === "adhoc");
+  $("view").innerHTML = `<h2>Schedule</h2><div class="rows">${slots.filter(s => s.today).map(slotRow).join("") || '<div class="empty">Nothing scheduled today.</div>'}</div>
+    ${slots.some(s => !s.today) ? `<h2>Later this week</h2><div class="rows">${slots.filter(s => !s.today).map(s => slotRow({ ...s, time: (s.days || []).map(d => d[0].toUpperCase() + d.slice(1)).join(", ") + " " + s.time })).join("")}</div>` : ""}
+    <h2>Assignments</h2><div class="rows">${adhoc.map(j => `<div class="row"><span class="time">${clock(j.created)}</span><div class="what"><b>${esc(j.title)}</b><small>${esc(j.prompt)}</small></div>${pill(j)}<button class="btn2" data-open="${j.id}">Open</button></div>`).join("") || '<div class="empty">No ad-hoc assignments yet.</div>'}</div>
+    <h2>New assignment</h2><div class="new"><input id="ntitle" placeholder="Headline or slug, e.g. Plant outage short"><select id="ntask">
+      ${["news-short", "explainer", "data-release", "market-wrap", "briefing", "research"].map(t => `<option>${t}</option>`).join("")}</select>
+      <textarea id="nprompt" placeholder="What should the desk agent draft?"></textarea><div><button class="btn" id="nassign">Assign</button></div></div>`;
+  $("view").querySelectorAll("[data-run]").forEach(b => b.onclick = async () => { b.disabled = true; await post("/app/run", { slot: b.dataset.run }); refresh(); });
+  $("view").querySelectorAll("[data-open]").forEach(b => b.onclick = () => { sel = b.dataset.open; view = "review"; drawn = ""; render(); });
+  $("nassign").onclick = async () => { const p = $("nprompt").value.trim(); if (!p) return;
+    await post("/app/run", { desk, task: $("ntask").value, title: $("ntitle").value.trim() || "Assignment", prompt: p, kind: "adhoc" }); refresh(); };
+}
+
+async function review() {
+  const desk = $("desk").value;
+  const jobs = S.jobs.filter(j => j.desk === desk && j.kind !== "ask" && j.status !== "approved");
+  $("title").textContent = "Review"; $("sub").textContent = "Every draft is checked by an editor before it goes anywhere"; $("hact").innerHTML = "";
+  if (!sel || !jobs.find(j => j.id === sel)) sel = (jobs.find(j => j.status === "review") || jobs[0] || {}).id;
+  const job = jobs.find(j => j.id === sel);
+  const key = JSON.stringify([desk, jobs.map(j => [j.id, j.status, j.response_id, j.files.length]), sel, tab]);
+  const listHtml = jobs.map(j => `<button class="item ${j.id === sel ? "on" : ""}" data-sel="${j.id}"><b>${esc(j.title)}</b><span class="meta"><span>${esc(j.task)} · ${clock(j.created)}</span>${pill(j)}</span></button>`).join("") || '<div class="empty">Nothing waiting. Drafts land here when the agent finishes.</div>';
+  if (key === drawn) { const l = document.querySelector(".list"); if (l) { l.innerHTML = listHtml; bindList(); } return; }
+  drawn = key;
+  $("view").innerHTML = `<div class="split"><div class="list">${listHtml}</div><div class="detail" id="detail"></div></div>`;
+  bindList();
+  const d = $("detail");
+  if (!job) { d.innerHTML = '<div class="empty">Select a draft.</div>'; return; }
+  const hist = `<div class="hist">${job.history.map(h => `<div>${clock(h.at)} · <b>${esc(h.event)}</b>${h.note && h.event !== "assigned" ? " · " + esc(h.note) : ""}</div>`).join("")}</div>`;
+  if (job.status !== "review") {
+    d.innerHTML = `<div class="dh"><b>${esc(job.title)}</b>${pill(job)}</div><div class="doc">${job.status === "failed" ? esc(job.error) : `<p><b>The desk agent is drafting.</b> It works in its own sandbox: reading the desk pack, fetching the sources, computing and charting. The draft appears here when it's done.</p><p class="sub">${esc(job.prompt)}</p>`}</div>${hist}`;
+    return;
+  }
+  const charts = job.files.filter(f => f.rel.endsWith(".png"));
+  const tabs = ["Draft", ...(charts.length ? ["Chart"] : []), "Sources", "Verify"];
+  if (!tabs.includes(tab)) tab = "Draft";
+  const claims = claimsOf(await text(job, "verify.md"));
+  const tk = ticks[job.id + job.response_id] ||= [];
+  const checked = () => claims.filter((_, i) => tk[i]).length;
+  d.innerHTML = `<div class="dh"><b>${esc(job.title)}</b>${pill(job)}<span class="grow"></span><span class="sub" id="cnt"></span></div>
+    <div class="tabs">${tabs.map(t => `<button class="${t === tab ? "on" : ""}" data-tab="${t}">${t}${t === "Verify" ? ` (${claims.length})` : ""}</button>`).join("")}</div>
+    <div class="doc" id="doc"></div>
+    <div class="acts"><textarea id="note" placeholder="Send back with a note for the agent, e.g. lead with the stocks draw; add the four-week average"></textarea>
+      <button class="btn2" id="back">Send back</button><button class="btn" id="ok">Approve</button></div>${hist}`;
+  const sync = () => { $("cnt").textContent = `${checked()} of ${claims.length} claims checked`; $("ok").disabled = checked() < claims.length; };
+  d.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; drawn = ""; render(); });
+  const doc = $("doc");
+  if (tab === "Draft") doc.innerHTML = md(job, await text(job, "draft.md"));
+  if (tab === "Chart") doc.innerHTML = charts.map(f => `<img src="${fileUrl(job, f)}">`).join("<br><br>");
+  if (tab === "Sources") { let s = []; try { s = JSON.parse(await text(job, "sources.json")); } catch {}
+    s = Array.isArray(s) ? s : (s.sources || []);
+    doc.innerHTML = `<ol>${s.map(x => `<li><b>${esc(x.id || "")}</b> ${esc(x.title || x.name || "")}<br><a href="${esc(x.url)}">${esc(x.url)}</a>${x.used_for ? `<br><small class="sub">used for: ${esc(x.used_for)}</small>` : ""}</li>`).join("")}</ol>`; }
+  if (tab === "Verify") {
+    doc.innerHTML = `<div class="claims">${claims.map((c, i) => `<label class="claim ${tk[i] ? "done" : ""}"><input type="checkbox" data-i="${i}" ${tk[i] ? "checked" : ""}><div>${esc(c.claim)}${c.source || c.status ? `<small>${esc(c.status)}${c.status && c.source ? " · " : ""}${esc(c.source)}</small>` : ""}</div></label>`).join("")}</div>`;
+    doc.querySelectorAll("input[data-i]").forEach(cb => cb.onchange = () => { tk[cb.dataset.i] = cb.checked; cb.closest(".claim").classList.toggle("done", cb.checked); localStorage.setItem("md-ticks", JSON.stringify(ticks)); sync(); });
+  }
+  sync();
+  $("back").onclick = async () => { const note = $("note").value.trim(); if (!note) { $("note").focus(); return; } $("back").disabled = true; await post("/app/send-back", { job: job.id, note }); drawn = ""; refresh(); };
+  $("ok").onclick = async () => { $("ok").disabled = true; await post("/app/approve", { job: job.id, checked: checked(), total: claims.length }); drawn = ""; refresh(); };
+}
+function bindList() { document.querySelectorAll("[data-sel]").forEach(b => b.onclick = () => { sel = b.dataset.sel; tab = "Draft"; drawn = ""; render(); }); }
+
+async function ask() {
+  const desk = $("desk").value, jobs = S.jobs.filter(j => j.desk === desk && j.kind === "ask").slice().reverse();
+  $("title").textContent = "Ask the desk"; $("sub").textContent = "A research thread with sources; each question follows the last"; $("hact").innerHTML = "";
+  const key = JSON.stringify(jobs.map(j => [j.id, j.status, j.files.length]));
+  if (key === drawn) return; drawn = key;
+  const parts = await Promise.all(jobs.map(async j => {
+    let body = j.status === "answered" ? (j.files.find(f => f.rel === "draft.md") ? md(j, await text(j, "draft.md")) : md(j, j.answer)) : j.status === "failed" ? esc(j.error) : `<span class="pill drafting">researching</span>`;
+    return `<div class="q">${esc(j.prompt)}</div><div class="a"><div class="doc">${body}</div></div>`;
+  }));
+  $("view").innerHTML = `<div class="thread">${parts.join("") || '<div class="empty">Ask anything the desk covers: "What is driving D4 RIN prices this month?"</div>'}</div>`;
+  $("view").scrollTop = $("view").scrollHeight;
+}
+
+async function archive() {
+  const desk = $("desk").value, jobs = S.jobs.filter(j => j.desk === desk && j.status === "approved");
+  $("title").textContent = "Archive"; $("sub").textContent = "Approved stories, each with its sources, checks and the agent's trace"; $("hact").innerHTML = "";
+  const job = jobs.find(j => j.id === sel) || jobs[0];
+  const key = JSON.stringify([jobs.map(j => j.id), job?.id]);
+  if (key === drawn) return; drawn = key;
+  $("view").innerHTML = `<div class="split"><div class="list">${jobs.map(j => `<button class="item ${j === job ? "on" : ""}" data-sel="${j.id}"><b>${esc(j.title)}</b><span class="meta"><span>approved ${clock(j.published.at)}</span><span>${j.published.verified} checked</span></span></button>`).join("") || '<div class="empty">Approved stories appear here.</div>'}</div>
+    <div class="detail">${job ? `<div class="dh"><b>${esc(job.title)}</b><span class="pill approved">approved</span><span class="grow"></span><button class="btn2" id="dl">Download .md</button></div>
+      <div class="doc">${md(job, job.published.markdown)}</div>
+      <div class="hist"><div><b>response</b> ${esc(job.response_id)} · <b>session</b> ${esc(job.session_id)} · <b>folder</b> ${esc(job.folder)}</div>${job.history.map(h => `<div>${clock(h.at)} · <b>${esc(h.event)}</b>${h.note && h.event !== "assigned" ? " · " + esc(h.note) : ""}</div>`).join("")}</div>` : ""}</div></div>`;
+  document.querySelectorAll("[data-sel]").forEach(b => b.onclick = () => { sel = b.dataset.sel; drawn = ""; render(); });
+  if (job) $("dl").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([job.published.markdown], { type: "text/markdown" })); a.download = `${job.desk}-${job.task}-${job.day}.md`; a.click(); };
+}
+
+async function render() {
+  if (!S) return;
+  nav(); $("askbar").hidden = view !== "ask";
+  if (view === "today") { drawn = ""; today(); } else if (view === "review") await review(); else if (view === "ask") await ask(); else await archive();
+}
+async function refresh() { S = await (await fetch("/app/state")).json(); $("auto").checked = S.auto;
+  if (document.activeElement !== $("editor")) $("editor").value = S.editor;
+  if (!$("desk").options.length) $("desk").innerHTML = S.desks.map(d => `<option value="${d.id}">${esc(d.label)} desk</option>`).join("");
+  const active = document.activeElement; if (view === "today" && active && ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) && active.id !== "desk") { nav(); return; }
+  await render(); }
+$("desk").onchange = () => { sel = null; drawn = ""; render(); };
+$("editor").onchange = async () => { await post("/app/editor", { editor: $("editor").value.trim() }); refresh(); };
+$("auto").onchange = async () => { await post("/app/auto", { on: $("auto").checked }); refresh(); };
+$("askgo").onclick = async () => { const q = $("askq").value.trim(); if (!q) return; $("askq").value = "";
+  await post("/app/run", { desk: $("desk").value, task: "research", title: q.slice(0, 60), prompt: q, kind: "ask" }); drawn = ""; refresh(); };
+refresh(); setInterval(refresh, 3000);
+</script>
+</body>
+</html>

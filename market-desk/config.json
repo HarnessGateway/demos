@@ -1,0 +1,63 @@
+{
+  "timezone": "America/New_York",
+  "desks": [
+    {
+      "id": "biofuels",
+      "label": "Biofuels",
+      "editor": "Biofuels desk"
+    },
+    {
+      "id": "crude-oil",
+      "label": "Crude oil",
+      "editor": "Crude oil desk"
+    }
+  ],
+  "schedule": [
+    {
+      "id": "bio-brief",
+      "desk": "biofuels",
+      "time": "06:00",
+      "task": "briefing",
+      "title": "Morning briefing",
+      "prompt": "Write the morning briefing for the biofuels desk: what moved in US biofuels markets and policy since the last business day, and what to watch today."
+    },
+    {
+      "id": "bio-eia",
+      "desk": "biofuels",
+      "time": "10:35",
+      "days": [
+        "wed"
+      ],
+      "task": "data-release",
+      "title": "EIA ethanol story",
+      "prompt": "Write the data-release story on the latest EIA weekly ethanol data: production and stocks, week over week and year over year, with a chart."
+    },
+    {
+      "id": "bio-policy",
+      "desk": "biofuels",
+      "time": "14:00",
+      "task": "explainer",
+      "title": "Policy explainer",
+      "prompt": "Write an explainer on the most significant US federal or California biofuels policy action of the past two weeks (RFS, LCFS, 45Z or SAF): what changed, who it affects, and what happens next."
+    },
+    {
+      "id": "crude-brief",
+      "desk": "crude-oil",
+      "time": "06:15",
+      "task": "briefing",
+      "title": "Morning briefing",
+      "prompt": "Write the morning briefing for the crude oil desk: what moved in US crude supply data and policy recently, and what to watch today."
+    },
+    {
+      "id": "crude-eia",
+      "desk": "crude-oil",
+      "time": "10:35",
+      "days": [
+        "wed"
+      ],
+      "task": "data-release",
+      "title": "EIA crude story",
+      "prompt": "Write the data-release story on the latest EIA Weekly Petroleum Status Report: commercial crude stocks, Cushing, production and refinery utilization, week over week and year over year, with a chart."
+    }
+  ]
+}

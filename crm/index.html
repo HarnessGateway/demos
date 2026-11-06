@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRM · sales agent</title>
+<link rel="stylesheet" href="/common/demo.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+.task { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 18px; }
+.task .hd { display:flex; align-items:center; gap:10px; margin-bottom:8px; } .task .hd b { flex:1; }
+.files { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; } .files button { border:1px solid var(--line); background:var(--bg); border-radius:8px; padding:4px 10px; font-size:12.5px; }
+.files button.on { border-color:var(--accent); }
+.acts { display:flex; gap:8px; margin-top:10px; align-items:center; } .acts .small { margin-left:auto; }
+.taskbar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; align-items:center; } .taskbar select, .taskbar input { width:auto; min-width:160px; }
+.outbox .body { white-space:pre-wrap; font-size:13px; color:var(--soft); margin-top:6px; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><b>North<span>CRM</span></b><small>Accounts, deals and a sales agent beside each</small></div>
+  <nav id="accounts"></nav>
+  <button class="btn2" id="newacct">New account</button>
+  <div class="side-foot">Signed in as <input id="rep" style="display:inline;width:110px;padding:2px 6px"> <br><br>The agent is the <b>sales-codex</b> harness package on HarnessGateway, one session per account.</div>
+</aside>
+<main>
+  <header><div><h1 id="title"></h1><div class="sub" id="sub"></div></div><div class="grow"></div><div class="tabs" id="tabs" style="border:0;margin:0"></div></header>
+  <div class="view" id="view"></div>
+</main>
+<script type="module">
+import { $, esc, get, post, ago, clock, md, pill, steps, wsUrl } from "/common/demo.js";
+let S = null, cur = null, tab = "agent", drawn = "", openFile = {};
+const TASKS = [["brief", "Account brief"], ["call-prep", "Call prep"], ["next-steps", "Next steps"], ["outreach", "Outreach draft"]];
+const acct = () => S.accounts.find(a => a.id === cur) || S.accounts[0];
+
+function side() {
+  $("accounts").innerHTML = S.accounts.map(a => { const working = a.agent.tasks.some(t => t.status === "working");
+    return `<button class="item ${a.id === acct()?.id ? "on" : ""}" data-id="${a.id}"><span>${esc(a.name)}${working ? " ·" : ""}</span><small>${esc(a.industry)} · ${a.deals.length} deal${a.deals.length === 1 ? "" : "s"}</small></button>`; }).join("");
+  $("accounts").querySelectorAll("[data-id]").forEach(b => b.onclick = () => { cur = b.dataset.id; drawn = ""; render(); });
+  if (document.activeElement !== $("rep")) $("rep").value = S.rep;
+}
+
+function overview(a) {
+  return `<div class="grid2"><div class="card"><h2>Account</h2><div class="kv"><div>Website</div><div><a href="${esc(a.website)}" target="_blank">${esc(a.website)}</a></div><div>Industry</div><div>${esc(a.industry)}</div><div>Size</div><div>${esc(a.size)}</div></div></div>
+    <div class="card"><h2>Open deals</h2>${a.deals.map(d => `<div class="row" style="padding:8px 0"><div class="what"><b>${esc(d.name)}</b><small>${esc(d.stage)} · closes ${esc(d.close)}</small></div><span>$${Number(d.value).toLocaleString()}</span></div>`).join("") || '<div class="empty">No open deals.</div>'}</div></div>
+    <h2>Contacts</h2><div class="rows">${a.contacts.map(c => `<div class="row"><div class="what"><b>${esc(c.name)}</b><small>${esc(c.title)} · ${esc(c.email)}</small></div></div>`).join("") || '<div class="empty">No contacts.</div>'}</div>`;
+}
+
+function agent(a) {
+  const tasks = a.agent.tasks.slice().reverse();
+  const bar = `<div class="taskbar">${TASKS.map(([k, l]) => `<button class="btn2" data-task="${k}">${l}</button>`).join("")}
+    <select id="contact">${a.contacts.map(c => `<option>${esc(c.name)} (${esc(c.title)})</option>`).join("")}</select><input id="topic" placeholder="outreach topic, e.g. dock scheduling"></div>
+    <div class="composer" style="padding:0 0 14px"><textarea id="ask" placeholder="Or ask the agent anything about this account"></textarea><button class="btn" id="askgo">Ask</button></div>`;
+  const body = tasks.map(t => {
+    const files = t.files.filter(f => /\.(md|txt|json)$/.test(f.rel));
+    const sel = openFile[t.id];
+    const approveLabel = t.kind === "outreach" ? "Approve and send" : "Approve and save to notes";
+    return `<div class="task" id="${t.id}"><div class="hd">${pill(t.status, t.status === "working" ? "working · " + ago(t.at) : t.status + (t.seconds ? ` · ${t.seconds}s` : ""))}<b>${esc(t.ask.slice(0, 140))}</b><span class="small">${clock(t.at)}</span></div>
+      ${steps(t.steps)}
+      ${t.status === "working" ? '<div class="small">The agent is working in its sandbox: reading the record, researching, writing files.</div>' : ""}
+      ${t.error ? `<div class="note">${esc(t.error)}</div>` : ""}
+      <div class="doc" data-doc="${t.id}">${t.reply ? md(sel ? "" : t.reply, a.agent.session_id, t.files) : ""}</div>
+      ${files.length ? `<div class="files">${files.map(f => `<button data-file="${esc(f.rel)}" data-t="${t.id}" class="${sel === f.rel ? "on" : ""}">${esc(f.rel)}</button>`).join("")}</div>` : ""}
+      ${t.status === "done" ? `<div class="acts"><button class="btn" data-approve="${t.id}" ${t.approved ? "disabled" : ""}>${t.approved ? "Approved" : approveLabel}</button><span class="small">${sel ? `approves ${esc(sel)}` : "approves the reply above"} · nothing leaves the agent's workspace until you do</span></div>` : ""}
+    </div>`; }).join("");
+  return bar + `<div class="thread">${body || '<div class="empty">No tasks yet. Start with an account brief.</div>'}</div>`;
+}
+
+function notes(a) {
+  return `<h2>Outbox</h2><div class="rows outbox">${a.outbox.slice().reverse().map(o => `<div class="row"><div class="what"><b>${esc(o.subject)}</b><small>to ${esc(o.to)} · by ${esc(o.by)} · ${clock(o.at)}</small><div class="body">${esc(o.body)}</div></div>${pill("sent")}</div>`).join("") || '<div class="empty">Nothing sent. Approve an outreach draft under Agent.</div>'}</div>
+    <h2>Notes</h2><div class="rows">${a.notes.slice().reverse().map(n => `<div class="row"><div class="what"><b>${esc(n.by)}</b><small style="white-space:normal">${esc(n.text).slice(0, 600)}</small></div><span class="small">${n.at ? clock(n.at) : ""}</span></div>`).join("") || '<div class="empty">No notes.</div>'}</div>
+    <h2>Add a note</h2><div class="composer" style="padding:0"><textarea id="notetext"></textarea><button class="btn" id="noteadd">Add</button></div>`;
+}
+
+async function render() {
+  const a = acct(); side();
+  if (!a) { $("view").innerHTML = '<div class="empty">Add an account.</div>'; return; }
+  $("title").textContent = a.name; $("sub").textContent = `${a.industry} · ${a.size}`;
+  $("tabs").innerHTML = [["overview", "Overview"], ["agent", "Agent"], ["notes", "Notes & outbox"]].map(([k, l]) => `<button class="${tab === k ? "on" : ""}" data-tab="${k}">${l}</button>`).join("");
+  $("tabs").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; drawn = ""; render(); });
+  const key = JSON.stringify([a.id, tab, a.agent.tasks.map(t => [t.id, t.status, t.approved, t.files.length]), a.notes.length, a.outbox.length, openFile]);
+  if (key === drawn) return; drawn = key;
+  const typing = document.activeElement && ["TEXTAREA", "INPUT"].includes(document.activeElement.tagName) && document.activeElement.id !== "rep" && document.activeElement.value;
+  if (typing) { drawn = ""; return; }
+  $("view").innerHTML = tab === "overview" ? overview(a) : tab === "agent" ? agent(a) : notes(a);
+  if (tab === "agent") {
+    $("view").querySelectorAll("[data-task]").forEach(b => b.onclick = async () => { b.disabled = true;
+      await post("/app/run", { account: a.id, kind: b.dataset.task, contact: $("contact").value, topic: $("topic").value.trim() }).catch(e => alert(e.message)); refresh(); });
+    $("askgo").onclick = async () => { const p = $("ask").value.trim(); if (!p) return; $("ask").value = ""; await post("/app/run", { account: a.id, kind: "ask", prompt: p }).catch(e => alert(e.message)); refresh(); };
+    $("view").querySelectorAll("[data-file]").forEach(b => b.onclick = async () => {
+      const t = a.agent.tasks.find(t => t.id === b.dataset.t), rel = b.dataset.file;
+      if (openFile[t.id] === rel) delete openFile[t.id]; else openFile[t.id] = rel;
+      drawn = ""; await render();
+      if (openFile[t.id] === rel) { const f = t.files.find(f => f.rel === rel); const text = await (await fetch(wsUrl(a.agent.session_id, f))).text();
+        document.querySelector(`[data-doc="${t.id}"]`).innerHTML = md(text, a.agent.session_id, t.files); }
+    });
+    for (const t of a.agent.tasks) if (openFile[t.id]) { const f = t.files.find(f => f.rel === openFile[t.id]); if (f) fetch(wsUrl(a.agent.session_id, f)).then(r => r.text()).then(x => { const d = document.querySelector(`[data-doc="${t.id}"]`); if (d) d.innerHTML = md(x, a.agent.session_id, t.files); }); }
+    $("view").querySelectorAll("[data-approve]").forEach(b => b.onclick = async () => { b.disabled = true;
+      const t = a.agent.tasks.find(t => t.id === b.dataset.approve);
+      const to = t.kind === "outreach" ? (a.contacts.find(c => $("contact") && $("contact").value.startsWith(c.name)) || a.contacts[0] || {}).email : "";
+      await post("/app/approve", { account: a.id, task: t.id, file: openFile[t.id] || (t.kind === "outreach" ? (t.files.find(f => f.rel.startsWith("outreach/")) || {}).rel : undefined), to }).catch(e => alert(e.message));
+      drawn = ""; refresh(); });
+  }
+  if (tab === "notes") $("noteadd").onclick = async () => { const t = $("notetext").value.trim(); if (!t) return; await post("/app/note", { account: a.id, text: t }); drawn = ""; refresh(); };
+}
+async function refresh() { S = await get("/app/state"); if (!cur) cur = S.accounts[0]?.id; render(); }
+$("newacct").onclick = async () => { const name = prompt("Company name"); if (!name) return; const website = prompt("Website", "https://") || ""; const industry = prompt("Industry") || "";
+  const a = await post("/app/account", { name, website, industry }); cur = a.id; drawn = ""; refresh(); };
+$("rep").onchange = async () => { await post("/app/rep", { rep: $("rep").value.trim() }); refresh(); };
+refresh(); setInterval(refresh, 3000);
+</script>
+</body>
+</html>
