@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Social · campaign manager</title>
+<link rel="stylesheet" href="/common/demo.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+:root { --accent:#7048e8; }
+.posts { display:grid; grid-template-columns:repeat(auto-fill, minmax(380px, 1fr)); gap:14px; }
+.post { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; gap:8px; }
+.post .hd { display:flex; align-items:center; gap:8px; } .post .hd b { flex:1; text-transform:capitalize; }
+.post textarea { min-height:150px; font-size:13.5px; line-height:1.5; }
+.post .meta { font-size:12px; color:var(--muted); word-break:break-all; } .post .meta b { color:var(--soft); }
+.post .acts { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .post .acts input { width:auto; min-width:160px; }
+.post.approved { border-color:#bfe0cb; }
+.cal .row .time { width:150px; font-variant-numeric:tabular-nums; font-weight:600; color:var(--soft); }
+.new { display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:900px; } .new .full { grid-column:1 / -1; } .new .plats { display:flex; gap:12px; flex-wrap:wrap; font-size:13.5px; }
+.new .plats label { display:flex; align-items:center; gap:4px; text-transform:capitalize; } .new .plats input { width:auto; }
+.revise { display:flex; gap:10px; align-items:flex-start; margin:14px 0; max-width:900px; } .revise textarea { flex:1; min-height:44px; height:44px; } .revise select { width:auto; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><b>Cross<span>Post</span></b><small>One story, every platform, every link back</small></div>
+  <nav id="list"></nav>
+  <button class="btn2" id="new">New campaign</button>
+  <div class="side-foot">Manager <input id="manager" style="display:inline;width:120px;padding:2px 6px"><br><br>The agent is the <b>social-claude-code</b> harness package on HarnessGateway. It drafts and plans; you edit, approve and schedule.</div>
+</aside>
+<main>
+  <header><div><h1 id="title">Campaigns</h1><div class="sub" id="sub"></div></div><div class="grow"></div><div id="hact"></div></header>
+  <div class="view" id="view"></div>
+</main>
+<script type="module">
+import { $, esc, get, post, ago, clock, md, pill, steps, wsUrl } from "/common/demo.js";
+let S = null, cur = null, tab = "drafts", drawn = "", creating = false;
+const camp = () => S.campaigns.find(c => c.id === cur);
+const LABEL = { new: "starting", working: "agent working", drafted: "drafts ready", done: "done", failed: "failed" };
+
+function side() {
+  $("list").innerHTML = S.campaigns.map(c => `<button class="item ${c.id === cur ? "on" : ""}" data-id="${c.id}"><span>${esc(c.title)}</span><small>${Object.keys(c.approved).length}/${c.posts.length} approved · ${LABEL[c.status] || c.status}</small></button>`).join("");
+  $("list").querySelectorAll("[data-id]").forEach(b => b.onclick = () => { cur = b.dataset.id; creating = false; tab = "drafts"; drawn = ""; render(); });
+  if (document.activeElement !== $("manager")) $("manager").value = S.manager;
+}
+
+function newForm() {
+  $("title").textContent = "New campaign"; $("sub").textContent = "What to promote, where, and for whom"; $("hact").innerHTML = "";
+  $("view").innerHTML = `<div class="new"><input id="n-title" placeholder="Campaign title, e.g. Launch: dock scheduling 2.0"><input id="n-goal" placeholder="Goal, e.g. sign-ups for the webinar" value="engagement and clicks to the article">
+    <textarea id="n-source" class="full" placeholder="The canonical URL to promote, or paste the text"></textarea>
+    <input id="n-audience" class="full" placeholder="Audience, e.g. operations leaders at mid-market logistics companies">
+    <div class="full plats">${S.platforms.map(p => `<label><input type="checkbox" value="${p}" checked> ${p}</label>`).join("")}</div>
+    <div class="full note">The agent reads the source, writes a post per platform in that platform's idiom, plans the sequence with a backlink to the source (UTM-tagged per platform) and cross-links between the posts, and explains the strategy. Nothing is posted: you approve each draft onto the calendar.</div>
+    <div class="full"><button class="btn" id="n-go">Draft the campaign</button></div></div>`;
+  $("n-go").onclick = async () => { $("n-go").disabled = true;
+    const platforms = [...$("view").querySelectorAll(".plats input:checked")].map(i => i.value);
+    try { const c = await post("/app/campaign", { title: $("n-title").value.trim(), source: $("n-source").value.trim(), goal: $("n-goal").value.trim(), audience: $("n-audience").value.trim(), platforms }); cur = c.id; creating = false; drawn = ""; refresh(); }
+    catch (err) { alert(err.message); $("n-go").disabled = false; } };
+}
+
+function draftsTab(c) {
+  const last = c.turns[c.turns.length - 1], working = c.status === "working";
+  return `${last && last.reply ? `<div class="a doc">${md(last.reply, c.session_id, c.files)}</div>` : ""}${last ? steps(last.steps) : ""}
+    ${last && last.error ? `<div class="note">${esc(last.error)}</div>` : ""}
+    <div class="revise"><select id="rv-platform"><option value="">all drafts</option>${c.platforms.map(p => `<option value="${p}">${p}</option>`).join("")}</select><textarea id="rv-note" placeholder="A note for the agent, e.g. lead with the cost saving, shorter X thread" ${working ? "disabled" : ""}></textarea><button class="btn2" id="rv-go" ${working ? "disabled" : ""}>Revise</button></div>
+    <h2>Drafts${working ? " (the agent is working)" : ""}</h2>
+    <div class="posts">${c.posts.map(p => { const ap = c.approved[p.platform], text = c.edits[p.platform] ?? p.text;
+      return `<div class="post ${ap ? "approved" : ""}"><div class="hd"><b>${esc(p.platform)}</b>${pill(ap ? "approved" : "draft")}<span class="small">${text.length} chars</span></div>
+        <textarea data-edit="${esc(p.platform)}" ${ap ? "disabled" : ""}>${esc(text)}</textarea>
+        <div class="meta">${p.hashtags.length ? `<b>tags</b> ${p.hashtags.map(esc).join(" ")}<br>` : ""}${p.link ? `<b>link</b> ${esc(p.link)}<br>` : ""}${p.cross_links && p.cross_links.length ? `<b>cross-links</b> ${p.cross_links.map(x => esc(typeof x === "string" ? x : JSON.stringify(x))).join(" · ")}<br>` : ""}${p.alt_text ? `<b>alt</b> ${esc(p.alt_text)}<br>` : ""}${p.notes ? `<b>notes</b> ${esc(p.notes)}` : ""}</div>
+        <div class="acts"><input data-when="${esc(p.platform)}" value="${esc(ap ? ap.when : p.when)}" placeholder="when" ${ap ? "disabled" : ""}><button class="btn" data-approve="${esc(p.platform)}" ${ap || working ? "disabled" : ""}>${ap ? `Scheduled by ${esc(ap.by)}` : "Approve and schedule"}</button></div></div>`; }).join("")
+      || `<div class="empty">${working ? "Reading the source and drafting…" : "No drafts yet."}</div>`}</div>`;
+}
+
+function calendar() {
+  const rows = S.campaigns.flatMap(c => Object.entries(c.approved).map(([platform, a]) => ({ ...a, platform, title: c.title })))
+    .sort((a, b) => a.when.localeCompare(b.when));
+  return `<div class="rows cal">${rows.map(r => `<div class="row"><span class="time">${esc(r.when)}</span><div class="what"><b style="text-transform:capitalize">${esc(r.platform)} · ${esc(r.title)}</b><small style="white-space:normal">${esc(r.text.slice(0, 220))}</small></div>${pill("approved", "scheduled")}</div>`).join("") || '<div class="empty">Nothing scheduled yet. Approve drafts under a campaign.</div>'}</div>`;
+}
+
+async function render() {
+  side();
+  if (creating || !S.campaigns.length) { newForm(); return; }
+  const c = camp() || S.campaigns[0]; cur = c.id;
+  $("title").textContent = c.title; $("sub").textContent = `${c.goal} · ${c.platforms.join(", ")}`;
+  $("hact").innerHTML = pill(c.status, LABEL[c.status] || c.status);
+  const key = JSON.stringify([c.id, tab, c.status, c.turns.map(t => [t.status, t.reply.length]), c.posts.length, c.approved, c.strategy.length, S.campaigns.map(x => Object.keys(x.approved).length)]);
+  if (key === drawn) return; drawn = key;
+  const typing = document.activeElement && ["TEXTAREA", "INPUT"].includes(document.activeElement.tagName) && document.activeElement.id !== "manager" && document.activeElement.value;
+  if (typing) { drawn = ""; return; }
+  $("view").innerHTML = `<div class="tabs">${[["drafts", `Drafts (${c.posts.length})`], ["strategy", "Strategy"], ["calendar", "Calendar"], ["log", `Log (${c.turns.length})`]].map(([k, l]) => `<button class="${tab === k ? "on" : ""}" data-tab="${k}">${l}</button>`).join("")}</div>
+    <div id="body">${tab === "drafts" ? draftsTab(c) : tab === "strategy" ? `<div class="doc card">${c.strategy ? md(c.strategy, c.session_id, c.files) : '<span class="small">No strategy note yet.</span>'}</div>`
+      : tab === "calendar" ? calendar()
+      : c.turns.slice().reverse().map(t => `<div class="a"><div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">${pill(t.status, t.status + (t.seconds ? ` · ${t.seconds}s` : ""))}<b>${esc(t.kind)}</b><span class="small">${clock(t.at)} · ${esc(t.response_id)}</span></div><div class="small" style="white-space:pre-wrap">${esc(t.prompt)}</div>${steps(t.steps)}${t.reply ? `<div class="doc">${md(t.reply, c.session_id, c.files)}</div>` : ""}</div>`).join("")}</div>`;
+  $("view").querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; drawn = ""; render(); });
+  if (tab === "drafts") {
+    $("rv-go")?.addEventListener("click", async () => { const note = $("rv-note").value.trim(); if (!note) return; $("rv-go").disabled = true;
+      await post("/app/revise", { campaign: c.id, platform: $("rv-platform").value, note }).catch(e => alert(e.message)); drawn = ""; refresh(); });
+    $("view").querySelectorAll("[data-edit]").forEach(t => t.onchange = () => post("/app/edit", { campaign: c.id, platform: t.dataset.edit, text: t.value }));
+    $("view").querySelectorAll("[data-approve]").forEach(b => b.onclick = async () => { b.disabled = true;
+      const when = $("view").querySelector(`[data-when="${b.dataset.approve}"]`).value.trim();
+      await post("/app/approve", { campaign: c.id, platform: b.dataset.approve, when }).catch(e => alert(e.message)); drawn = ""; refresh(); });
+  }
+}
+async function refresh() { S = await get("/app/state"); if (!cur && S.campaigns.length) cur = S.campaigns[0].id; render(); }
+$("new").onclick = () => { creating = true; drawn = ""; render(); };
+$("manager").onchange = async () => { await post("/app/manager", { manager: $("manager").value.trim() }); refresh(); };
+refresh(); setInterval(refresh, 3000);
+</script>
+</body>
+</html>

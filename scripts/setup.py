@@ -18,9 +18,9 @@ import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-APPS = {"crm": "sales-codex", "market-desk": "journalist-pi"}
+APPS = {"crm": "sales-codex", "market-desk": "journalist-pi", "social": "social-claude-code"}
 # the provider shape each harness speaks decides which of the organization's providers serves it
-PROVIDER_FOR = {"sales-codex": "openai", "journalist-pi": "anthropic"}
+PROVIDER_FOR = {"sales-codex": "openai", "journalist-pi": "anthropic", "social-claude-code": "anthropic"}
 
 
 def call(api: str, key: str, method: str, path: str, body: bytes | None = None, content_type: str = "application/json") -> dict:
