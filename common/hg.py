@@ -8,6 +8,7 @@ Containers API. Standard library only.
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 import time
@@ -63,9 +64,17 @@ class HG:
 
     # ── turns ──────────────────────────────────────────────────────────────────────────────────────────────────────
     def start(self, prompt: str, *, user: str, previous: str | None = None, metadata: dict[str, str] | None = None,
-              instructions: str | None = None) -> dict[str, Any]:
-        """A background turn: the Response in its queued state, with id and metadata.session_id."""
-        body: dict[str, Any] = {"model": self.model, "input": prompt, "background": True, "user": user[:256]}
+              instructions: str | None = None, files: dict[str, tuple[str, bytes]] | None = None) -> dict[str, Any]:
+        """A background turn: the Response in its queued state, with id and metadata.session_id. `files` are sent
+        inline with the prompt as input_file parts ({filename: (media type, bytes)}); the platform puts them where
+        the harness reads a turn's input files."""
+        content: Any = prompt
+        if files:
+            content = [{"role": "user", "content": [{"type": "input_text", "text": prompt}, *(
+                {"type": "input_file", "filename": name,
+                 "file_data": f"data:{kind};base64," + base64.b64encode(data).decode()}
+                for name, (kind, data) in files.items())]}]
+        body: dict[str, Any] = {"model": self.model, "input": content, "background": True, "user": user[:256]}
         if previous:
             body["previous_response_id"] = previous
         if metadata:

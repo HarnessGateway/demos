@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Point the demos at a HarnessGateway: with an admin key, create one run-only key per app (named after the app, as the
-platform means it), write each app's .env, and install the demo packages from packages/ (optional).
+platform means it), write each app's .env, and install the demo packages from packages/ (optional): one package per app.
 
     scripts/setup.py --api http://localhost:8000 --admin-key-file ~/admin.key [--model deepseek-v4-pro] [--install]
 

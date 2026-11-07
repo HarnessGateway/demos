@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Desk</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280;
+    --border: #e3e6eb; --accent: #2f6fed; --accent-soft: #e8efff; --danger: #d64545; --ok: #1f8a3c; --ok-soft: #e3f6e8;
+    --warn: #b7791f; --warn-soft: #fff4dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --panel: #1c2027; --text: #e6e8ec; --muted: #9aa3b0;
+      --border: #2c323c; --accent: #5b8cff; --accent-soft: #23304d; --danger: #f06a6a; --ok: #4cc272; --ok-soft: #173322;
+      --warn: #e0b04a; --warn-soft: #3a3110;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0 12px 0 0; }
+  input, select, textarea, button { font: inherit; color: inherit; }
+  input, select, textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; width: 100%; }
+  textarea { resize: vertical; min-height: 70px; }
+  button { border: 1px solid var(--border); background: var(--panel); border-radius: 7px; padding: 7px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .55; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.ok { background: var(--ok); border-color: var(--ok); color: #fff; }
+  button.danger { color: var(--danger); }
+  header input { width: 240px; }
+  header select { width: auto; }
+  .spacer { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); }
+
+  .pipeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 16px 20px 0; }
+  .stage-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+  .stage-card.active { border-color: var(--accent); background: var(--accent-soft); }
+  .stage-card .label { color: var(--muted); font-size: 12px; }
+  .stage-card .count { font-size: 20px; font-weight: 600; }
+  .stage-card .val { color: var(--muted); font-size: 12px; }
+
+  main { padding: 16px 20px 40px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 500; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--accent-soft); }
+  tbody tr:last-child td { border-bottom: none; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .pill.review { background: var(--warn-soft); color: var(--warn); }
+  .pill.approved { background: var(--ok-soft); color: var(--ok); }
+  .pill.spiked, .pill.failed { background: #fbe6e6; color: var(--danger); }
+  .empty { text-align: center; color: var(--muted); padding: 40px; }
+  .muted { color: var(--muted); }
+  .sub { font-size: 12px; color: var(--muted); }
+  .calview .stories, .storyview .cal { display: none; }
+
+  .cal { display: grid; gap: 14px; }
+  .day { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+  .day h3 { margin: 0 0 8px; font-size: 13px; }
+  .day.today h3::after { content: " · today"; color: var(--accent); }
+  .slot { display: grid; grid-template-columns: 70px 90px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
+  .slot:first-of-type { border-top: none; }
+  .slot button { padding: 3px 10px; font-size: 12px; }
+
+  .drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,.3); display: none; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--panel); border-left: 1px solid var(--border);
+            display: none; flex-direction: column; }
+  .open .drawer { display: flex; } .open .drawer-bg { display: block; }
+  .drawer.narrow { width: min(520px, 100%); }
+  .drawer .head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 8px; }
+  .drawer .head h2 { margin: 0; flex: 1; font-size: 18px; }
+  .drawer .body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .drawer .foot { border-top: 1px solid var(--border); padding: 12px 20px 16px; display: grid; gap: 8px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+  .field { margin-bottom: 10px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 12px; padding: 4px 10px; border-radius: 99px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding: 0 20px; }
+  .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 9px 10px; color: var(--muted); }
+  .tabs button.on { border-bottom-color: var(--accent); color: var(--text); }
+
+  .doc { font-size: 15px; line-height: 1.6; }
+  .doc h1 { font-size: 22px; line-height: 1.25; margin: 0 0 12px; }
+  .doc h2 { font-size: 17px; margin: 20px 0 8px; } .doc h3 { font-size: 15px; }
+  .doc img { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; margin: 8px 0; background: #fff; }
+  .doc table { font-size: 13px; width: auto; margin: 10px 0; } .doc table tr { cursor: default; }
+  .doc a { color: var(--accent); }
+  .doc code { font-size: 12px; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+  .doc blockquote { margin: 8px 0; padding: 4px 12px; border-left: 3px solid var(--border); color: var(--muted); }
+  .claims td { font-size: 13px; } .claims tr { cursor: default; } .claims input { width: auto; }
+  .claims tr.done td { color: var(--muted); }
+  .sources li { margin-bottom: 8px; } .sources a { color: var(--accent); word-break: break-all; }
+  .working { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; }
+  .steps { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+  .steps code { font-size: 11px; background: var(--panel); padding: 1px 4px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+  .run { border-top: 1px solid var(--border); padding: 10px 0; }
+  .run .msg { white-space: normal; font-size: 13px; }
+  .note { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  .err { color: var(--danger); }
+  .logline { font-size: 12px; color: var(--muted); }
+  @media (max-width: 760px) { .pipeline { grid-template-columns: repeat(3, 1fr); } .hide-sm { display: none; } header input { width: 100%; }
+    .slot { grid-template-columns: 60px 1fr auto; } .slot .k { display: none; } }
+</style>
+</head>
+<body class="storyview">
+<header>
+  <h1>📰 Market Desk</h1>
+  <input id="search" placeholder="Search headlines and assignments…">
+  <select id="deskFilter"><option value="">All desks</option></select>
+  <span class="seg"><button id="storiesBtn" class="on">Stories</button><button id="calBtn">Calendar</button></span>
+  <span class="spacer"></span>
+  <button class="primary" id="newBtn">+ Assignment</button>
+</header>
+
+<section class="pipeline" id="pipeline"></section>
+
+<main>
+  <table class="stories">
+    <thead><tr><th>Story</th><th>Desk</th><th class="hide-sm">Kind</th><th>Status</th><th>Claims verified</th>
+      <th class="hide-sm">Sources</th><th class="hide-sm">Updated</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="cal" id="cal"></div>
+</main>
+
+<div id="newWrap">
+  <div class="drawer-bg"></div>
+  <aside class="drawer narrow">
+    <div class="head"><h2>New assignment</h2><button class="closeBtn">Close</button></div>
+    <div class="body">
+      <div class="grid">
+        <div class="field"><label>Desk</label><select id="nDesk"></select></div>
+        <div class="field"><label>Kind</label><select id="nKind"></select></div>
+      </div>
+      <div class="field"><label>Title</label><input id="nTitle" placeholder="e.g. What the 45Z guidance means for SAF"></div>
+      <div class="field"><label>Assignment</label><textarea id="nBrief" style="min-height:140px"
+        placeholder="What the story should answer, what to lead with, how long."></textarea></div>
+      <label>Or start from one of these</label>
+      <div class="chips" id="nExamples"></div>
+    </div>
+    <div class="foot"><div class="row"><span class="sub">The agent gathers the desk's primary sources, writes a cited draft with
+      charts and lists the claims you need to verify. It never publishes.</span><span class="spacer"></span>
+      <button class="primary" id="assignBtn">Assign</button></div></div>
+  </aside>
+</div>
+
+<div id="storyWrap">
+  <div class="drawer-bg"></div>
+  <aside class="drawer">
+    <div class="head"><div style="flex:1"><h2 id="sHead"></h2><div class="sub" id="sMeta"></div></div><button class="closeBtn">Close</button></div>
+    <div class="tabs" id="sTabs"></div>
+    <div class="body" id="sBody"></div>
+    <div class="foot" id="sFoot"></div>
+  </aside>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const el = (tag, props = {}, ...kids) => { const e = document.createElement(tag); Object.assign(e, props); for (const k of kids) e.append(k); return e; };
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+}
+const STATUS_LABEL = { drafting: "Drafting", review: "In review", revising: "Revising", approved: "Approved", spiked: "Spiked", failed: "Failed" };
+const CARDS = ["drafting", "review", "revising", "approved", "spiked"];
+let META, stories = [], statusFilter = "", view = "stories", open = null, tab = "draft", timer = null;
+const ago = t => { const s = Date.now() / 1000 - t; return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)}m ago` : s < 86400 ? `${Math.floor(s / 3600)}h ago` : new Date(t * 1000).toLocaleDateString(); };
+const fmtSecs = s => s < 60 ? `${Math.round(s)}s` : `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+const deskName = d => META.desks[d] || d;
+
+async function load() { stories = await api("GET", "/api/stories"); render(); }
+
+function filtered() {
+  const q = $("#search").value.trim().toLowerCase(), d = $("#deskFilter").value;
+  return stories.filter(s => (!d || s.desk === d) && (!statusFilter || s.status === statusFilter) &&
+    (!q || [s.title, s.headline, s.brief, s.summary].join(" ").toLowerCase().includes(q)));
+}
+
+function render() {
+  const d = $("#deskFilter").value;
+  $("#pipeline").replaceChildren(...CARDS.map(st => {
+    const n = stories.filter(s => s.status === st && (!d || s.desk === d));
+    const card = el("div", { className: "stage-card" + (statusFilter === st ? " active" : "") },
+      el("div", { className: "label", textContent: STATUS_LABEL[st] }), el("div", { className: "count", textContent: n.length }),
+      el("div", { className: "val", textContent: st === "review" ? `${n.reduce((a, s) => a + s.claims.length - s.verified, 0)} claims to verify` : n.length ? `latest ${ago(Math.max(...n.map(s => s.updated_at)))}` : "—" }));
+    card.onclick = () => { statusFilter = statusFilter === st ? "" : st; render(); };
+    return card;
+  }));
+  if (view === "calendar") return renderCal();
+  const list = filtered();
+  $("#rows").replaceChildren(...(list.length ? list.map(s => {
+    const tr = el("tr", {},
+      el("td", {}, el("div", { textContent: s.headline || s.title }), el("div", { className: "sub", textContent: s.headline ? s.title : s.brief.slice(0, 110) + (s.brief.length > 110 ? "…" : "") })),
+      el("td", { textContent: deskName(s.desk) }),
+      el("td", { className: "hide-sm muted", textContent: s.kind }),
+      el("td", {}, el("span", { className: "pill " + s.status, textContent: STATUS_LABEL[s.status] })),
+      el("td", { className: s.claims.length && s.verified === s.claims.length ? "" : "muted", textContent: s.claims.length ? `${s.verified} / ${s.claims.length}` : "" }),
+      el("td", { className: "hide-sm muted", textContent: s.sources.length || "" }),
+      el("td", { className: "hide-sm muted", textContent: ago(s.updated_at) }));
+    tr.onclick = () => openStory(s.id);
+    return tr;
+  }) : [el("tr", {}, el("td", { colSpan: 7, className: "empty", textContent: stories.length ? "No stories match." : "No stories yet. Assign one with “+ Assignment”, or from the Calendar." }))]));
+}
+
+async function renderCal() {
+  const items = await api("GET", "/api/calendar"), d = $("#deskFilter").value;
+  const today = new Date(META.now).toLocaleDateString("en-CA");
+  const days = {};
+  for (const it of items) if (!d || it.desk === d) (days[it.date] = days[it.date] || []).push(it);
+  const out = Object.entries(days).map(([date, list]) => el("div", { className: "day" + (date === today ? " today" : "") },
+    el("h3", { textContent: new Date(date + "T12:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) }),
+    ...list.map(it => {
+      const b = it.story_id ? el("button", { textContent: "Open" }) : el("button", { className: "primary", textContent: "Assign" });
+      b.onclick = it.story_id ? () => openStory(it.story_id) : () => newAssignment(it);
+      return el("div", { className: "slot" }, el("span", { className: "muted", textContent: it.time + " ET" }),
+        el("span", { className: "k" }, el("span", { className: "pill", textContent: deskName(it.desk) })),
+        el("span", {}, el("b", { textContent: it.title }), el("div", { className: "sub", textContent: it.kind })), b);
+    })));
+  const monthly = META.monthly.filter(m => !d || m.desk === d);
+  out.push(el("div", { className: "day" }, el("h3", { textContent: "Monthly, on the agency's own schedule" }),
+    ...monthly.map(m => { const b = el("button", { textContent: "Assign" }); b.onclick = () => newAssignment(m);
+      return el("div", { className: "slot" }, el("span", { className: "muted", textContent: "monthly" }),
+        el("span", { className: "k" }, el("span", { className: "pill", textContent: deskName(m.desk) })),
+        el("span", {}, el("b", { textContent: m.title }), el("div", { className: "sub", textContent: m.kind })), b); })));
+  $("#cal").replaceChildren(...out);
+}
+
+function setView(v) {
+  view = v;
+  document.body.className = v === "calendar" ? "calview" : "storyview";
+  $("#storiesBtn").classList.toggle("on", v === "stories"); $("#calBtn").classList.toggle("on", v === "calendar");
+  render();
+}
+
+// ── new assignment ──
+function newAssignment(preset) {
+  $("#nDesk").value = preset?.desk || $("#deskFilter").value || "biofuels";
+  $("#nKind").value = preset?.kind || "explainer";
+  $("#nTitle").value = preset?.title || "";
+  $("#nBrief").value = preset?.brief || "";
+  $("#newWrap").classList.add("open");
+  (preset ? $("#assignBtn") : $("#nTitle")).focus();
+}
+async function assign() {
+  const btn = $("#assignBtn"); btn.disabled = true;
+  try {
+    const s = await api("POST", "/api/stories", { desk: $("#nDesk").value, kind: $("#nKind").value, title: $("#nTitle").value, brief: $("#nBrief").value });
+    closePanels(); await load(); openStory(s.id);
+  } catch (e) { alert(e.message); }
+  btn.disabled = false;
+}
+
+// ── a story ──
+function closePanels() { document.querySelectorAll(".open").forEach(e => e.classList.remove("open")); open = null; clearTimeout(timer); }
+
+async function openStory(id) {
+  clearTimeout(timer);
+  if (!open || open.id !== id) tab = "draft";
+  open = await api("GET", `/api/stories/${id}`);
+  $("#storyWrap").classList.add("open");
+  drawStory();
+  const busy = ["drafting", "revising"].includes(open.status);
+  if (busy) timer = setTimeout(() => open && open.id === id && openStory(id), 3000);
+  else if (stories.find(s => s.id === id)?.status !== open.status) load();
+}
+
+function fileUrl(f) { return `/ws/${open.id}/${f.id}/${encodeURIComponent(f.rel.split("/").pop())}`; }
+
+function draftHtml(md) {
+  const div = el("div", { className: "doc" });
+  div.innerHTML = window.marked ? marked.parse(md || "") : "";
+  if (!window.marked) div.append(el("pre", { textContent: md }));
+  div.querySelectorAll("img").forEach(img => {
+    const rel = (img.getAttribute("src") || "").replace(/^\.\//, "");
+    const f = open.files.find(f => f.rel === rel) || open.files.find(f => f.rel.split("/").pop() === rel.split("/").pop());
+    if (f) img.src = fileUrl(f); else img.replaceWith(el("div", { className: "sub", textContent: `(missing image: ${rel})` }));
+  });
+  div.querySelectorAll("a").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
+  return div;
+}
+
+function stepList(steps) {
+  return el("div", { className: "steps" }, ...steps.slice(-10).map(s => el("div", {}, `${s.kind} `, el("code", { textContent: s.text.slice(0, 200) }))));
+}
+
+function drawStory() {
+  const s = open, busy = ["drafting", "revising"].includes(s.status);
+  $("#sHead").textContent = s.headline || s.title;
+  $("#sMeta").replaceChildren(el("span", { className: "pill " + s.status, textContent: STATUS_LABEL[s.status] }),
+    ` ${deskName(s.desk)} · ${s.kind} · assigned ${ago(s.created_at)}`);
+  const tabs = [["draft", "Draft"], ["claims", `Verify ${s.claims.length ? `${s.verified}/${s.claims.length}` : ""}`],
+                ["sources", `Sources ${s.sources.length || ""}`], ["agent", "Agent"]];
+  $("#sTabs").replaceChildren(...tabs.map(([k, label]) => { const b = el("button", { className: tab === k ? "on" : "", textContent: label });
+    b.onclick = () => { tab = k; drawStory(); }; return b; }));
+  const body = $("#sBody"); body.replaceChildren();
+  const run = s.runs[s.runs.length - 1];
+  if (busy && run) {
+    const stop = el("button", { textContent: "Stop" });
+    stop.onclick = () => api("POST", `/api/stories/${s.id}/cancel`).catch(e => alert(e.message));
+    body.append(el("div", { className: "working" },
+      el("div", { className: "row" }, el("b", { textContent: run.status === "queued" ? "Starting the agent's sandbox…" : `The agent is ${s.status === "revising" ? "revising" : "reporting"}… ${fmtSecs(Date.now() / 1000 - run.created_at)}` }), el("span", { className: "spacer" }), stop),
+      run.note ? el("div", { className: "note", textContent: "Editor's note: " + run.note }) : "",
+      run.steps.length ? stepList(run.steps) : el("div", { className: "sub", textContent: "Its steps show here as it works." })));
+    if (tab === "draft" && !s.draft) { drawFoot(); return; }
+    body.append(el("div", { style: "height:14px" }));
+  }
+  if (s.status === "failed" && run) body.append(el("div", { className: "working" }, el("b", { className: "err", textContent: "The agent could not file this story." }), el("div", { textContent: run.error || run.answer })));
+  if (tab === "draft") {
+    if (s.editor_note && !busy && s.status === "review") body.append(el("div", { className: "note", textContent: "Revised after: " + s.editor_note }), el("div", { style: "height:10px" }));
+    body.append(s.draft ? draftHtml(s.draft) : el("div", { className: "muted", textContent: busy ? "" : "No draft." }));
+  } else if (tab === "claims") {
+    if (!s.claims.length) body.append(el("div", { className: "muted", textContent: "No claims listed yet." }));
+    else body.append(el("p", { className: "sub", textContent: "Every claim the agent flagged for a person to check. Tick each one once you have checked it against the source." }),
+      el("table", { className: "claims" }, el("thead", {}, el("tr", {}, ...["", "Claim", "Source", "Agent's note"].map(h => el("th", { textContent: h })))),
+        el("tbody", {}, ...s.claims.map((c, i) => {
+          const box = el("input", { type: "checkbox", checked: !!c.checked });
+          box.onchange = async () => { open = { ...(await api("PUT", `/api/stories/${s.id}/claims`, { index: i, checked: box.checked })), runs: open.runs, log: open.log, draft: open.draft }; drawStory(); load(); };
+          const src = el("td", {}); src.innerHTML = window.marked ? marked.parseInline(c.source || "") : ""; src.querySelectorAll("a").forEach(a => { a.target = "_blank"; });
+          return el("tr", { className: c.checked ? "done" : "" }, el("td", {}, box), el("td", { textContent: c.claim }), src,
+            el("td", { className: "muted", textContent: [c.status, c.note].filter(Boolean).join(" · ") }));
+        }))));
+  } else if (tab === "sources") {
+    body.append(s.sources.length ? el("ol", { className: "sources" }, ...s.sources.map(x => el("li", {},
+      el("div", {}, x.url ? el("a", { href: x.url, target: "_blank", rel: "noopener", textContent: x.title || x.url }) : (x.title || "")),
+      el("div", { className: "sub", textContent: [x.id, x.used_for].filter(Boolean).join(" · ") + (x.url && x.title ? ` · ${x.url}` : "") }))))
+      : el("div", { className: "muted", textContent: "No sources yet." }));
+  } else {
+    body.append(el("p", { className: "sub", textContent: `Harness ${META.model} on ${META.api}. One session for this story: ${s.session_id || "—"}. Workspace folder /workspace/${s.folder || "…"}.` }));
+    for (const r of [...s.runs].reverse()) {
+      const u = r.usage || {};
+      const box = el("div", { className: "run" },
+        el("div", { className: "row" }, el("b", { textContent: r.kind === "draft" ? "First draft" : "Revision" }), el("span", { className: "pill " + (r.status === "completed" ? "approved" : r.status === "failed" ? "failed" : ""), textContent: r.status }),
+          el("span", { className: "sub", textContent: [r.ended_at && `took ${fmtSecs(r.ended_at - r.created_at)}`, u.total_tokens && `${u.total_tokens.toLocaleString()} tokens`, r.response_id].filter(Boolean).join(" · ") })));
+      if (r.note) box.append(el("div", { className: "note", textContent: "Editor's note: " + r.note }));
+      if (r.answer) { const m = el("div", { className: "doc msg" }); m.innerHTML = window.marked ? marked.parse(r.answer) : r.answer; box.append(m); }
+      if (r.error) box.append(el("div", { className: "err", textContent: r.error }));
+      if (r.steps.length) box.append(stepList(r.steps));
+      body.append(box);
+    }
+    body.append(el("div", { className: "run" }, el("b", { textContent: "History" }), ...s.log.map(l => el("div", { className: "logline", textContent: `${new Date(l.at * 1000).toLocaleString()} · ${l.who} ${l.what}` }))));
+  }
+  drawFoot();
+}
+
+function drawFoot() {
+  const s = open, foot = $("#sFoot"), busy = ["drafting", "revising"].includes(s.status);
+  foot.replaceChildren();
+  if (busy) { foot.append(el("div", { className: "sub", textContent: "You can close this; the agent keeps working and the story updates when it files." })); return; }
+  if (["approved", "spiked"].includes(s.status)) {
+    const re = el("button", { textContent: "Reopen" });
+    re.onclick = () => decide("review");
+    foot.append(el("div", { className: "row" }, el("span", { className: "sub", textContent: s.status === "approved" ? "Approved. Publishing is outside this demo." : "Spiked." }), el("span", { className: "spacer" }), re));
+    return;
+  }
+  const note = el("textarea", { placeholder: "Send it back with a note: what to change, add or check…", style: "min-height:56px" });
+  const back = el("button", { textContent: "Send back to the agent" });
+  back.onclick = async () => { back.disabled = true; try { open = await api("POST", `/api/stories/${s.id}/revise`, { note: note.value }); tab = "draft"; openStory(s.id); load(); } catch (e) { alert(e.message); back.disabled = false; } };
+  const approve = el("button", { className: "ok", textContent: "Approve", disabled: !s.draft });
+  approve.onclick = () => {
+    const left = s.claims.length - s.verified;
+    if (left && !confirm(`${left} claim(s) are not verified yet. Approve anyway?`)) return;
+    decide("approved");
+  };
+  const spike = el("button", { className: "danger", textContent: "Spike" });
+  spike.onclick = () => confirm("Spike this story?") && decide("spiked");
+  foot.append(note, el("div", { className: "row" }, back, el("span", { className: "spacer" }), spike, approve));
+}
+
+async function decide(status) {
+  try { await api("POST", `/api/stories/${open.id}/decide`, { status }); await openStory(open.id); load(); } catch (e) { alert(e.message); }
+}
+
+(async function init() {
+  META = await api("GET", "/api/meta");
+  for (const [k, v] of Object.entries(META.desks)) { $("#deskFilter").append(el("option", { value: k, textContent: v })); $("#nDesk").append(el("option", { value: k, textContent: v })); }
+  for (const k of META.kinds) $("#nKind").append(el("option", { value: k, textContent: k }));
+  $("#nExamples").replaceChildren(...[
+    { desk: "biofuels", kind: "explainer", title: "What 45Z means for SAF producers", brief: "Explain the 45Z clean fuel production credit as it applies to sustainable aviation fuel: who qualifies, how the credit is calculated, the latest Treasury guidance, and what producers are waiting on. 600 words." },
+    { desk: "crude-oil", kind: "research", title: "Cushing stocks vs. the five-year range", brief: "Where are Cushing crude stocks against their five-year range, and how has that changed over the last eight weeks? Answer in prose with a chart." },
+    { desk: "biofuels", kind: "news-short", title: "Latest Federal Register biofuels action", brief: "A 250-word news short on the most recent biofuels-related action in the Federal Register: what it does and when it takes effect." },
+  ].map(x => { const b = el("button", { className: "chip", textContent: `${META.desks[x.desk]} · ${x.title}` }); b.onclick = () => newAssignment(x); return b; }));
+  $("#search").oninput = render; $("#deskFilter").onchange = render;
+  $("#storiesBtn").onclick = () => setView("stories"); $("#calBtn").onclick = () => setView("calendar");
+  $("#newBtn").onclick = () => newAssignment(null); $("#assignBtn").onclick = assign;
+  document.querySelectorAll(".drawer-bg, .closeBtn").forEach(b => b.onclick = closePanels);
+  document.onkeydown = e => { if (e.key === "Escape") closePanels(); };
+  await load();
+  setInterval(() => { if (stories.some(s => ["drafting", "revising"].includes(s.status))) load(); }, 5000);
+})();
+</script>
+</body>
+</html>

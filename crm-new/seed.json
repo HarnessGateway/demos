@@ -1,0 +1,3228 @@
+{
+ "store": {
+  "name": "Showroom",
+  "address": "1100 Congress Ave, Austin, TX 78701",
+  "lat": 30.27644199222,
+  "lon": -97.739754035328
+ },
+ "customers": [
+  {
+   "name": "Sam King",
+   "company": "King Properties LLC",
+   "email": "sam.king11@example.com",
+   "phone": "(512) 555-2011",
+   "address": "6069 S Pleasant Valley Rd, Austin, TX 78744",
+   "lat": 30.186153312226,
+   "lon": -97.746096395602,
+   "stage": "Contacted",
+   "value": 10000.0,
+   "source": "Walk-in",
+   "tags": "lighting, countertops",
+   "notes": "Budget is firm.",
+   "next_follow_up": 10,
+   "created": [
+    100,
+    "14:57:00"
+   ],
+   "updated": [
+    53,
+    "09:17:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      75,
+      "12:08:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for lighting.",
+     "at": [
+      53,
+      "09:17:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Nora Turner",
+   "company": "",
+   "email": "nora.turner95@example.com",
+   "phone": "(512) 555-5263",
+   "address": "4725 Duval St, Austin, TX 78751",
+   "lat": 30.310017638472,
+   "lon": -97.722589174961,
+   "stage": "Proposal",
+   "value": 5200.0,
+   "source": "Referral",
+   "tags": "window treatments",
+   "notes": "Works from home; weekday afternoons are best.",
+   "next_follow_up": -12,
+   "created": [
+    75,
+    "16:13:00"
+   ],
+   "updated": [
+    26,
+    "13:45:00"
+   ],
+   "activities": [
+    {
+     "kind": "Task",
+     "body": "Prepare revised quote for window treatments.",
+     "at": [
+      71,
+      "13:45:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      64,
+      "15:53:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      29,
+      "09:21:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Intro call; walked through options for window treatments.",
+     "at": [
+      26,
+      "13:45:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Fatima Anderson",
+   "company": "",
+   "email": "fatima.anderson19@example.com",
+   "phone": "(512) 555-2990",
+   "address": "7238 Spicewood Springs Rd, Austin, TX 78759",
+   "lat": 30.409574558462,
+   "lon": -97.792382167702,
+   "stage": "Lead",
+   "value": 17200.0,
+   "source": "Referral",
+   "tags": "whole-home paint, countertops",
+   "notes": "",
+   "next_follow_up": 21,
+   "created": [
+    213,
+    "18:08:00"
+   ],
+   "updated": [
+    213,
+    "16:59:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Daniel Parker",
+   "company": "Rental owner",
+   "email": "daniel.parker81@example.com",
+   "phone": "(512) 555-7505",
+   "address": "3716 Manor Rd, Austin, TX 78723",
+   "lat": 30.290025776938,
+   "lon": -97.696462370222,
+   "stage": "Lead",
+   "value": 12500.0,
+   "source": "Referral",
+   "tags": "countertops",
+   "notes": "Flexible on budget if the design is right. Asked about eco-friendly materials.",
+   "next_follow_up": -13,
+   "created": [
+    27,
+    "15:12:00"
+   ],
+   "updated": [
+    27,
+    "12:19:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Alicia Garcia",
+   "company": "",
+   "email": "alicia.garcia66@example.com",
+   "phone": "(512) 555-0331",
+   "address": "2625 W Braker Ln, Austin, TX 78758",
+   "lat": 30.390280971727,
+   "lon": -97.718349259001,
+   "stage": "Lost",
+   "value": 18600.0,
+   "source": "Website",
+   "tags": "flooring",
+   "notes": "Decided to DIY.",
+   "next_follow_up": null,
+   "created": [
+    162,
+    "14:32:00"
+   ],
+   "updated": [
+    134,
+    "14:33:00"
+   ],
+   "activities": [
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      143,
+      "13:28:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      134,
+      "14:33:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Ken Campbell",
+   "company": "",
+   "email": "ken.campbell78@example.com",
+   "phone": "(512) 555-7397",
+   "address": "4298 S Lamar Blvd, Austin, TX 78704",
+   "lat": 30.236171522876,
+   "lon": -97.79293869624,
+   "stage": "Lead",
+   "value": 10600.0,
+   "source": "Repeat customer",
+   "tags": "closet system, window treatments",
+   "notes": "Prefers text over phone calls. Budget is firm.",
+   "next_follow_up": 12,
+   "created": [
+    174,
+    "17:09:00"
+   ],
+   "updated": [
+    174,
+    "11:21:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Chloe Nguyen",
+   "company": "",
+   "email": "chloe.nguyen71@example.com",
+   "phone": "(512) 555-2201",
+   "address": "1561 E 7Th St, Austin, TX 78702",
+   "lat": 30.264054456622,
+   "lon": -97.726556162761,
+   "stage": "Lead",
+   "value": 16600.0,
+   "source": "Repeat customer",
+   "tags": "flooring",
+   "notes": "Older home (1960s), may need permits.",
+   "next_follow_up": -1,
+   "created": [
+    238,
+    "11:55:00"
+   ],
+   "updated": [
+    99,
+    "18:18:00"
+   ],
+   "activities": [
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      99,
+      "18:18:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Victor Brown",
+   "company": "",
+   "email": "victor.brown77@example.com",
+   "phone": "(512) 555-9024",
+   "address": "7469 Cameron Rd, Austin, TX 78752",
+   "lat": 30.329465567558,
+   "lon": -97.689852077055,
+   "stage": "Lead",
+   "value": 13400.0,
+   "source": "Google Ads",
+   "tags": "countertops, outdoor living, closet system",
+   "notes": "",
+   "next_follow_up": 4,
+   "created": [
+    77,
+    "15:52:00"
+   ],
+   "updated": [
+    77,
+    "17:17:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Emily King",
+   "company": "King Properties LLC",
+   "email": "emily.king52@example.com",
+   "phone": "(512) 555-4583",
+   "address": "1603 W Braker Ln, Austin, TX 78758",
+   "lat": 30.388566598106,
+   "lon": -97.700512651761,
+   "stage": "Won",
+   "value": 143300.0,
+   "source": "Referral",
+   "tags": "kitchen remodel, closet system, countertops",
+   "notes": "Older home (1960s), may need permits.",
+   "next_follow_up": null,
+   "created": [
+    118,
+    "09:46:00"
+   ],
+   "updated": [
+    30,
+    "18:37:00"
+   ],
+   "activities": [
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      86,
+      "13:30:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      77,
+      "18:43:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent appointment confirmation.",
+     "at": [
+      34,
+      "14:13:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      33,
+      "12:49:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Signed contract for kitchen remodel, closet system, countertops.",
+     "at": [
+      30,
+      "18:37:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Daniel Scott",
+   "company": "",
+   "email": "daniel.scott26@example.com",
+   "phone": "(512) 555-8347",
+   "address": "6592 S 1St St, Austin, TX 78745",
+   "lat": 30.19824709972,
+   "lon": -97.787165954895,
+   "stage": "Proposal",
+   "value": 46200.0,
+   "source": "Walk-in",
+   "tags": "bathroom remodel, closet system, kitchen remodel",
+   "notes": "",
+   "next_follow_up": 13,
+   "created": [
+    146,
+    "17:21:00"
+   ],
+   "updated": [
+    15,
+    "16:43:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      145,
+      "09:57:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Emailed financing info.",
+     "at": [
+      142,
+      "14:43:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Prepare revised quote for bathroom remodel.",
+     "at": [
+      140,
+      "18:14:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      15,
+      "16:43:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Xavier Turner",
+   "company": "",
+   "email": "xavier.turner83@example.com",
+   "phone": "(512) 555-3258",
+   "address": "1478 W Parmer Ln, Austin, TX 78727",
+   "lat": 30.411028044125,
+   "lon": -97.68568284291,
+   "stage": "Contacted",
+   "value": 13600.0,
+   "source": "Website",
+   "tags": "cabinets, whole-home paint",
+   "notes": "Wants to finish before the holidays. Interested in financing options.",
+   "next_follow_up": 3,
+   "created": [
+    189,
+    "12:32:00"
+   ],
+   "updated": [
+    16,
+    "14:39:00"
+   ],
+   "activities": [
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      119,
+      "11:41:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      16,
+      "14:39:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Priya Mitchell",
+   "company": "",
+   "email": "priya.mitchell67@example.com",
+   "phone": "(512) 555-8648",
+   "address": "4801 Airport Blvd, Austin, TX 78751",
+   "lat": 30.307699797625,
+   "lon": -97.715639823584,
+   "stage": "Lost",
+   "value": 37800.0,
+   "source": "Walk-in",
+   "tags": "cabinets, outdoor living",
+   "notes": "Went with a competitor on price. Prefers weekend appointments.",
+   "next_follow_up": null,
+   "created": [
+    16,
+    "09:21:00"
+   ],
+   "updated": [
+    8,
+    "17:40:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      16,
+      "17:55:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at cabinets samples.",
+     "at": [
+      10,
+      "18:29:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      8,
+      "17:40:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Sofia Phillips",
+   "company": "",
+   "email": "sofia.phillips80@example.com",
+   "phone": "(512) 555-4242",
+   "address": "2710 Exposition Blvd, Austin, TX 78703",
+   "lat": 30.303599013848,
+   "lon": -97.764476235101,
+   "stage": "Lead",
+   "value": 6400.0,
+   "source": "Walk-in",
+   "tags": "window treatments",
+   "notes": "",
+   "next_follow_up": 2,
+   "created": [
+    187,
+    "15:12:00"
+   ],
+   "updated": [
+    187,
+    "10:41:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Alicia Torres",
+   "company": "",
+   "email": "alicia.torres9@example.com",
+   "phone": "(512) 555-7748",
+   "address": "6878 Spicewood Springs Rd, Austin, TX 78759",
+   "lat": 30.400778309391,
+   "lon": -97.783927261321,
+   "stage": "Qualified",
+   "value": 57200.0,
+   "source": "Google Ads",
+   "tags": "kitchen remodel, bathroom remodel",
+   "notes": "",
+   "next_follow_up": 21,
+   "created": [
+    208,
+    "14:29:00"
+   ],
+   "updated": [
+    21,
+    "18:49:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      203,
+      "13:07:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Discussed timeline and budget for kitchen remodel.",
+     "at": [
+      191,
+      "15:30:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at kitchen remodel samples.",
+     "at": [
+      112,
+      "16:57:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Prepare revised quote for kitchen remodel.",
+     "at": [
+      79,
+      "16:36:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      21,
+      "18:49:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Olivia Hill",
+   "company": "",
+   "email": "olivia.hill84@example.com",
+   "phone": "(512) 555-9431",
+   "address": "2110 Enfield Rd, Austin, TX 78703",
+   "lat": 30.287205083809,
+   "lon": -97.766241807554,
+   "stage": "Lead",
+   "value": 17100.0,
+   "source": "Facebook",
+   "tags": "countertops, flooring",
+   "notes": "Interested in financing options.",
+   "next_follow_up": 10,
+   "created": [
+    194,
+    "10:52:00"
+   ],
+   "updated": [
+    67,
+    "11:27:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Left voicemail about scheduling a consult.",
+     "at": [
+      67,
+      "11:27:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Tom Jackson",
+   "company": "Jackson Properties LLC",
+   "email": "tom.jackson84@example.com",
+   "phone": "(512) 555-4067",
+   "address": "3116 S Lamar Blvd, Austin, TX 78704",
+   "lat": 30.242373658072,
+   "lon": -97.784163124156,
+   "stage": "Won",
+   "value": 13100.0,
+   "source": "Referral",
+   "tags": "closet system, lighting, bathroom remodel",
+   "notes": "HOA approval required for exterior work.",
+   "next_follow_up": null,
+   "created": [
+    186,
+    "14:07:00"
+   ],
+   "updated": [
+    25,
+    "15:55:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for closet system.",
+     "at": [
+      153,
+      "14:12:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      130,
+      "17:57:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      113,
+      "11:07:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      92,
+      "11:12:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent appointment confirmation.",
+     "at": [
+      65,
+      "14:06:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Signed contract for closet system, lighting, bathroom remodel.",
+     "at": [
+      25,
+      "15:55:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      8,
+      "13:48:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Quinn Brown",
+   "company": "",
+   "email": "quinn.brown35@example.com",
+   "phone": "(512) 555-7750",
+   "address": "2932 S Lamar Blvd, Austin, TX 78704",
+   "lat": 30.243475347334,
+   "lon": -97.782697918477,
+   "stage": "Lead",
+   "value": 47500.0,
+   "source": "Referral",
+   "tags": "outdoor living, bathroom remodel",
+   "notes": "Interested in financing options.",
+   "next_follow_up": 4,
+   "created": [
+    37,
+    "11:12:00"
+   ],
+   "updated": [
+    4,
+    "12:44:00"
+   ],
+   "activities": [
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      4,
+      "12:44:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Liam Hall",
+   "company": "",
+   "email": "liam.hall94@example.com",
+   "phone": "(512) 555-5884",
+   "address": "2560 Enfield Rd, Austin, TX 78703",
+   "lat": 30.289865895157,
+   "lon": -97.770736623395,
+   "stage": "Lead",
+   "value": 3800.0,
+   "source": "Website",
+   "tags": "lighting, kitchen remodel, outdoor living",
+   "notes": "Prefers weekend appointments.",
+   "next_follow_up": -8,
+   "created": [
+    161,
+    "16:07:00"
+   ],
+   "updated": [
+    81,
+    "10:50:00"
+   ],
+   "activities": [
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      81,
+      "10:50:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Brooke Rivera",
+   "company": "Rivera Properties LLC",
+   "email": "brooke.rivera48@example.com",
+   "phone": "(512) 555-3810",
+   "address": "1807 W 35Th St, Austin, TX 78703",
+   "lat": 30.308228137737,
+   "lon": -97.753443456853,
+   "stage": "Contacted",
+   "value": 38600.0,
+   "source": "Other",
+   "tags": "bathroom remodel",
+   "notes": "Budget is firm. Older home (1960s), may need permits.",
+   "next_follow_up": 16,
+   "created": [
+    35,
+    "16:40:00"
+   ],
+   "updated": [
+    12,
+    "15:29:00"
+   ],
+   "activities": [
+    {
+     "kind": "Note",
+     "body": "Requested a quote revision with mid-range materials.",
+     "at": [
+      24,
+      "09:50:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Intro call; walked through options for bathroom remodel.",
+     "at": [
+      12,
+      "15:29:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Quinn Allen",
+   "company": "Allen Properties LLC",
+   "email": "quinn.allen90@example.com",
+   "phone": "(512) 555-5914",
+   "address": "2520 E Riverside Dr, Austin, TX 78741",
+   "lat": 30.239101998352,
+   "lon": -97.726068082594,
+   "stage": "Contacted",
+   "value": 7200.0,
+   "source": "Referral",
+   "tags": "closet system",
+   "notes": "",
+   "next_follow_up": 6,
+   "created": [
+    179,
+    "11:05:00"
+   ],
+   "updated": [
+    129,
+    "18:55:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      129,
+      "18:55:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Maria King",
+   "company": "",
+   "email": "maria.king69@example.com",
+   "phone": "(512) 555-1436",
+   "address": "4181 Shoal Creek Blvd, Austin, TX 78756",
+   "lat": 30.313535862668,
+   "lon": -97.747867343349,
+   "stage": "Lost",
+   "value": 23200.0,
+   "source": "Repeat customer",
+   "tags": "cabinets",
+   "notes": "Decided to DIY. Interested in financing options. Gate code needed; ask when confirming.",
+   "next_follow_up": null,
+   "created": [
+    240,
+    "09:44:00"
+   ],
+   "updated": [
+    198,
+    "09:29:00"
+   ],
+   "activities": [
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      234,
+      "12:22:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Left voicemail about scheduling a consult.",
+     "at": [
+      229,
+      "14:01:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      208,
+      "10:40:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for cabinets.",
+     "at": [
+      198,
+      "09:29:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Liam Allen",
+   "company": "",
+   "email": "liam.allen29@example.com",
+   "phone": "(512) 555-7879",
+   "address": "2081 Enfield Rd, Austin, TX 78703",
+   "lat": 30.286173992863,
+   "lon": -97.7645080554,
+   "stage": "Lost",
+   "value": 29700.0,
+   "source": "Website",
+   "tags": "cabinets, lighting",
+   "notes": "Project postponed indefinitely. Interested in financing options.",
+   "next_follow_up": null,
+   "created": [
+    108,
+    "18:22:00"
+   ],
+   "updated": [
+    35,
+    "18:50:00"
+   ],
+   "activities": [
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      106,
+      "12:22:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Prepare revised quote for cabinets.",
+     "at": [
+      88,
+      "14:09:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Emailed financing info.",
+     "at": [
+      71,
+      "13:38:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Left voicemail about scheduling a consult.",
+     "at": [
+      66,
+      "11:20:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent cabinets brochure and price ranges.",
+     "at": [
+      35,
+      "18:50:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Marcus Rossi",
+   "company": "",
+   "email": "marcus.rossi58@example.com",
+   "phone": "(512) 555-5484",
+   "address": "1961 W 35Th St, Austin, TX 78703",
+   "lat": 30.308476647778,
+   "lon": -97.75450820462,
+   "stage": "Contacted",
+   "value": 20300.0,
+   "source": "Walk-in",
+   "tags": "whole-home paint, kitchen remodel",
+   "notes": "Older home (1960s), may need permits. Works from home; weekday afternoons are best.",
+   "next_follow_up": -8,
+   "created": [
+    52,
+    "09:53:00"
+   ],
+   "updated": [
+    5,
+    "17:00:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      5,
+      "17:00:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Jordan Green",
+   "company": "",
+   "email": "jordan.green87@example.com",
+   "phone": "(512) 555-7447",
+   "address": "3409 W Slaughter Ln, Austin, TX 78748",
+   "lat": 30.182452045558,
+   "lon": -97.847963174452,
+   "stage": "Lost",
+   "value": 12000.0,
+   "source": "Website",
+   "tags": "countertops",
+   "notes": "Decided to DIY. Has two dogs, call before arriving.",
+   "next_follow_up": null,
+   "created": [
+    216,
+    "15:32:00"
+   ],
+   "updated": [
+    7,
+    "09:16:00"
+   ],
+   "activities": [
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      169,
+      "12:18:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      13,
+      "15:12:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      12,
+      "17:57:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      7,
+      "09:16:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Derek Evans",
+   "company": "Rental owner",
+   "email": "derek.evans82@example.com",
+   "phone": "(512) 555-1203",
+   "address": "5900 E Riverside Dr, Austin, TX 78741",
+   "lat": 30.227595288678,
+   "lon": -97.70883668233,
+   "stage": "Lead",
+   "value": 18300.0,
+   "source": "Google Ads",
+   "tags": "bathroom remodel",
+   "notes": "Comparing us with two other quotes.",
+   "next_follow_up": -11,
+   "created": [
+    185,
+    "10:35:00"
+   ],
+   "updated": [
+    55,
+    "18:23:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      55,
+      "18:23:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Aisha Walker",
+   "company": "Rental owner",
+   "email": "aisha.walker55@example.com",
+   "phone": "(512) 555-4168",
+   "address": "7079 Shoal Creek Blvd, Austin, TX 78757",
+   "lat": 30.349865405376,
+   "lon": -97.742991566347,
+   "stage": "Contacted",
+   "value": 15700.0,
+   "source": "Walk-in",
+   "tags": "whole-home paint",
+   "notes": "Moving in 6 months; wants resale value.",
+   "next_follow_up": 15,
+   "created": [
+    216,
+    "14:07:00"
+   ],
+   "updated": [
+    67,
+    "13:06:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      67,
+      "13:06:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Tyler Scott",
+   "company": "",
+   "email": "tyler.scott32@example.com",
+   "phone": "(512) 555-2286",
+   "address": "4013 Duval St, Austin, TX 78751",
+   "lat": 30.30147595308,
+   "lon": -97.728018984876,
+   "stage": "Won",
+   "value": 1800.0,
+   "source": "Repeat customer",
+   "tags": "window treatments",
+   "notes": "Saw our showroom display and loved the oak samples.",
+   "next_follow_up": null,
+   "created": [
+    239,
+    "17:33:00"
+   ],
+   "updated": [
+    20,
+    "18:45:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      233,
+      "16:26:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      140,
+      "17:07:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      130,
+      "09:42:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Discussed timeline and budget for window treatments.",
+     "at": [
+      23,
+      "09:10:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Signed contract for window treatments.",
+     "at": [
+      20,
+      "18:45:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Rosa Shah",
+   "company": "",
+   "email": "rosa.shah34@example.com",
+   "phone": "(512) 555-8608",
+   "address": "1489 W 35Th St, Austin, TX 78703",
+   "lat": 30.305722718603,
+   "lon": -97.749328762018,
+   "stage": "Qualified",
+   "value": 7900.0,
+   "source": "Website",
+   "tags": "lighting, outdoor living",
+   "notes": "Interested in financing options.",
+   "next_follow_up": -6,
+   "created": [
+    200,
+    "09:00:00"
+   ],
+   "updated": [
+    39,
+    "12:27:00"
+   ],
+   "activities": [
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at lighting samples.",
+     "at": [
+      185,
+      "11:00:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at lighting samples.",
+     "at": [
+      126,
+      "17:39:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      120,
+      "14:05:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      111,
+      "17:17:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent appointment confirmation.",
+     "at": [
+      39,
+      "12:27:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Ken Davis",
+   "company": "Rental owner",
+   "email": "ken.davis75@example.com",
+   "phone": "(512) 555-6962",
+   "address": "2112 W William Cannon Dr, Austin, TX 78745",
+   "lat": 30.203341077259,
+   "lon": -97.808119755443,
+   "stage": "Lead",
+   "value": 10400.0,
+   "source": "Walk-in",
+   "tags": "closet system",
+   "notes": "Has two dogs, call before arriving.",
+   "next_follow_up": -4,
+   "created": [
+    64,
+    "11:16:00"
+   ],
+   "updated": [
+    40,
+    "16:38:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      40,
+      "16:38:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Nora Lewis",
+   "company": "Rental owner",
+   "email": "nora.lewis70@example.com",
+   "phone": "(512) 555-9743",
+   "address": "3002 W William Cannon Dr, Austin, TX 78745",
+   "lat": 30.209616492794,
+   "lon": -97.820806942807,
+   "stage": "Qualified",
+   "value": 38900.0,
+   "source": "Home show",
+   "tags": "outdoor living",
+   "notes": "Has two dogs, call before arriving.",
+   "next_follow_up": -1,
+   "created": [
+    110,
+    "18:33:00"
+   ],
+   "updated": [
+    6,
+    "13:36:00"
+   ],
+   "activities": [
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at outdoor living samples.",
+     "at": [
+      51,
+      "16:10:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      6,
+      "13:36:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Dana Brown",
+   "company": "",
+   "email": "dana.brown60@example.com",
+   "phone": "(512) 555-5157",
+   "address": "1447 Congress Ave S, Austin, TX 78704",
+   "lat": 30.249379124018,
+   "lon": -97.749692239062,
+   "stage": "Lead",
+   "value": 61400.0,
+   "source": "Walk-in",
+   "tags": "kitchen remodel",
+   "notes": "Gate code needed; ask when confirming. Prefers weekend appointments.",
+   "next_follow_up": -5,
+   "created": [
+    73,
+    "13:01:00"
+   ],
+   "updated": [
+    70,
+    "09:54:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Emailed financing info.",
+     "at": [
+      70,
+      "09:54:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Caleb Lewis",
+   "company": "",
+   "email": "caleb.lewis54@example.com",
+   "phone": "(512) 555-0542",
+   "address": "2808 E Riverside Dr, Austin, TX 78741",
+   "lat": 30.238208526722,
+   "lon": -97.725715564775,
+   "stage": "Qualified",
+   "value": 13400.0,
+   "source": "Facebook",
+   "tags": "closet system, outdoor living",
+   "notes": "Moving in 6 months; wants resale value. Comparing us with two other quotes.",
+   "next_follow_up": 11,
+   "created": [
+    139,
+    "09:23:00"
+   ],
+   "updated": [
+    19,
+    "16:03:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      88,
+      "10:20:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      22,
+      "17:48:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      19,
+      "16:03:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Chloe Martinez",
+   "company": "",
+   "email": "chloe.martinez4@example.com",
+   "phone": "(512) 555-5287",
+   "address": "4347 Airport Blvd, Austin, TX 78722",
+   "lat": 30.299875587341,
+   "lon": -97.711375931717,
+   "stage": "Lead",
+   "value": 45800.0,
+   "source": "Website",
+   "tags": "outdoor living",
+   "notes": "",
+   "next_follow_up": -7,
+   "created": [
+    9,
+    "15:44:00"
+   ],
+   "updated": [
+    9,
+    "09:13:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Zoe Collins",
+   "company": "",
+   "email": "zoe.collins45@example.com",
+   "phone": "(512) 555-9027",
+   "address": "2581 Enfield Rd, Austin, TX 78703",
+   "lat": 30.289960228128,
+   "lon": -97.771124569645,
+   "stage": "Contacted",
+   "value": 14000.0,
+   "source": "Google Ads",
+   "tags": "countertops, bathroom remodel, whole-home paint",
+   "notes": "",
+   "next_follow_up": 20,
+   "created": [
+    226,
+    "11:19:00"
+   ],
+   "updated": [
+    65,
+    "10:30:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent countertops brochure and price ranges.",
+     "at": [
+      196,
+      "13:00:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      67,
+      "11:01:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Prepare revised quote for countertops.",
+     "at": [
+      65,
+      "10:30:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Sofia Baker",
+   "company": "",
+   "email": "sofia.baker82@example.com",
+   "phone": "(512) 555-1444",
+   "address": "10030 Anderson Mill Rd, Austin, TX 78750",
+   "lat": 30.447124601539,
+   "lon": -97.798873557015,
+   "stage": "Won",
+   "value": 8200.0,
+   "source": "Other",
+   "tags": "window treatments, bathroom remodel",
+   "notes": "",
+   "next_follow_up": null,
+   "created": [
+    37,
+    "13:25:00"
+   ],
+   "updated": [
+    15,
+    "15:09:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent window treatments brochure and price ranges.",
+     "at": [
+      18,
+      "16:52:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Signed contract for window treatments, bathroom remodel.",
+     "at": [
+      15,
+      "15:09:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      12,
+      "16:52:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at window treatments samples.",
+     "at": [
+      10,
+      "13:59:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      1,
+      "10:08:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Hannah Evans",
+   "company": "Evans Properties LLC",
+   "email": "hannah.evans47@example.com",
+   "phone": "(512) 555-3724",
+   "address": "2453 N Lamar Blvd, Austin, TX 78705",
+   "lat": 30.289180012569,
+   "lon": -97.752435537853,
+   "stage": "Contacted",
+   "value": 71500.0,
+   "source": "Repeat customer",
+   "tags": "bathroom remodel, closet system, kitchen remodel",
+   "notes": "Older home (1960s), may need permits. Has two dogs, call before arriving.",
+   "next_follow_up": 20,
+   "created": [
+    205,
+    "09:57:00"
+   ],
+   "updated": [
+    18,
+    "13:31:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      182,
+      "13:22:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Emailed financing info.",
+     "at": [
+      133,
+      "10:33:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at bathroom remodel samples.",
+     "at": [
+      18,
+      "13:31:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Grace Evans",
+   "company": "",
+   "email": "grace.evans36@example.com",
+   "phone": "(512) 555-4847",
+   "address": "4247 Far West Blvd, Austin, TX 78731",
+   "lat": 30.360930171998,
+   "lon": -97.769175641792,
+   "stage": "Qualified",
+   "value": 84200.0,
+   "source": "Referral",
+   "tags": "kitchen remodel",
+   "notes": "Interested in financing options. Flexible on budget if the design is right.",
+   "next_follow_up": 11,
+   "created": [
+    120,
+    "09:36:00"
+   ],
+   "updated": [
+    12,
+    "10:43:00"
+   ],
+   "activities": [
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      103,
+      "18:38:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      95,
+      "15:31:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Left voicemail about scheduling a consult.",
+     "at": [
+      80,
+      "11:46:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      12,
+      "10:43:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Alicia Clark",
+   "company": "",
+   "email": "alicia.clark71@example.com",
+   "phone": "(512) 555-7128",
+   "address": "4022 Manor Rd, Austin, TX 78723",
+   "lat": 30.289887030513,
+   "lon": -97.693188233398,
+   "stage": "Lead",
+   "value": 15600.0,
+   "source": "Website",
+   "tags": "flooring, cabinets",
+   "notes": "Interested in financing options. Prefers weekend appointments.",
+   "next_follow_up": -9,
+   "created": [
+    229,
+    "12:51:00"
+   ],
+   "updated": [
+    229,
+    "09:19:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "James Lewis",
+   "company": "",
+   "email": "james.lewis93@example.com",
+   "phone": "(512) 555-9811",
+   "address": "3360 Exposition Blvd, Austin, TX 78703",
+   "lat": 30.309132898193,
+   "lon": -97.762939356496,
+   "stage": "Lead",
+   "value": 5500.0,
+   "source": "Google Ads",
+   "tags": "countertops, bathroom remodel",
+   "notes": "Saw our showroom display and loved the oak samples. HOA approval required for exterior work.",
+   "next_follow_up": -8,
+   "created": [
+    133,
+    "15:17:00"
+   ],
+   "updated": [
+    133,
+    "11:27:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Rachel Rossi",
+   "company": "",
+   "email": "rachel.rossi15@example.com",
+   "phone": "(512) 555-5854",
+   "address": "5010 Burnet Rd, Austin, TX 78756",
+   "lat": 30.321034781095,
+   "lon": -97.739367537912,
+   "stage": "Lead",
+   "value": 5400.0,
+   "source": "Referral",
+   "tags": "countertops, whole-home paint",
+   "notes": "Asked about eco-friendly materials.",
+   "next_follow_up": 2,
+   "created": [
+    20,
+    "15:32:00"
+   ],
+   "updated": [
+    20,
+    "15:25:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Derek Roberts",
+   "company": "",
+   "email": "derek.roberts60@example.com",
+   "phone": "(512) 555-0594",
+   "address": "3329 Guadalupe St, Austin, TX 78705",
+   "lat": 30.30002160508,
+   "lon": -97.73975834252,
+   "stage": "Lead",
+   "value": 6500.0,
+   "source": "Walk-in",
+   "tags": "countertops, lighting",
+   "notes": "HOA approval required for exterior work.",
+   "next_follow_up": 7,
+   "created": [
+    183,
+    "13:21:00"
+   ],
+   "updated": [
+    183,
+    "15:58:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Elena Torres",
+   "company": "",
+   "email": "elena.torres6@example.com",
+   "phone": "(512) 555-9035",
+   "address": "8273 Cameron Rd, Austin, TX 78754",
+   "lat": 30.33925308695,
+   "lon": -97.681839645253,
+   "stage": "Proposal",
+   "value": 16600.0,
+   "source": "Website",
+   "tags": "countertops, lighting",
+   "notes": "Interested in financing options. Wants to finish before the holidays.",
+   "next_follow_up": 4,
+   "created": [
+    115,
+    "16:30:00"
+   ],
+   "updated": [
+    7,
+    "15:51:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Left voicemail about scheduling a consult.",
+     "at": [
+      79,
+      "15:01:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      74,
+      "13:00:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent countertops brochure and price ranges.",
+     "at": [
+      32,
+      "14:20:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      7,
+      "15:51:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Sam Nguyen",
+   "company": "Rental owner",
+   "email": "sam.nguyen36@example.com",
+   "phone": "(512) 555-0419",
+   "address": "1817 Manor Rd, Austin, TX 78722",
+   "lat": 30.283625679027,
+   "lon": -97.722829950482,
+   "stage": "Qualified",
+   "value": 13100.0,
+   "source": "Google Ads",
+   "tags": "bathroom remodel",
+   "notes": "Has two dogs, call before arriving.",
+   "next_follow_up": -7,
+   "created": [
+    129,
+    "17:52:00"
+   ],
+   "updated": [
+    8,
+    "10:44:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      47,
+      "11:08:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for bathroom remodel.",
+     "at": [
+      45,
+      "15:42:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent bathroom remodel brochure and price ranges.",
+     "at": [
+      8,
+      "10:44:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Aisha Evans",
+   "company": "Evans Properties LLC",
+   "email": "aisha.evans6@example.com",
+   "phone": "(512) 555-5105",
+   "address": "3085 Congress Ave S, Austin, TX 78704",
+   "lat": 30.233057381369,
+   "lon": -97.75800613144,
+   "stage": "Contacted",
+   "value": 9700.0,
+   "source": "Facebook",
+   "tags": "countertops",
+   "notes": "Budget is firm.",
+   "next_follow_up": -3,
+   "created": [
+    94,
+    "15:29:00"
+   ],
+   "updated": [
+    18,
+    "15:11:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      82,
+      "13:50:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Emailed financing info.",
+     "at": [
+      44,
+      "16:42:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for countertops.",
+     "at": [
+      18,
+      "15:11:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Raj Johnson",
+   "company": "",
+   "email": "raj.johnson76@example.com",
+   "phone": "(512) 555-2125",
+   "address": "7307 Mesa Dr, Austin, TX 78731",
+   "lat": 30.363404140526,
+   "lon": -97.764270631232,
+   "stage": "Contacted",
+   "value": 33500.0,
+   "source": "Facebook",
+   "tags": "kitchen remodel, flooring",
+   "notes": "",
+   "next_follow_up": 3,
+   "created": [
+    87,
+    "16:44:00"
+   ],
+   "updated": [
+    0,
+    "22:23:26"
+   ],
+   "activities": [
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      87,
+      "14:34:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Discussed timeline and budget for kitchen remodel.",
+     "at": [
+      1,
+      "13:17:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "foobar",
+     "at": [
+      0,
+      "22:23:19"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Sam Rivera",
+   "company": "",
+   "email": "sam.rivera32@example.com",
+   "phone": "(512) 555-8612",
+   "address": "4742 Far West Blvd, Austin, TX 78731",
+   "lat": 30.358977206258,
+   "lon": -97.780512190148,
+   "stage": "Contacted",
+   "value": 38300.0,
+   "source": "Facebook",
+   "tags": "cabinets, flooring, countertops",
+   "notes": "HOA approval required for exterior work.",
+   "next_follow_up": 18,
+   "created": [
+    121,
+    "11:49:00"
+   ],
+   "updated": [
+    77,
+    "12:52:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent cabinets brochure and price ranges.",
+     "at": [
+      91,
+      "16:48:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at cabinets samples.",
+     "at": [
+      89,
+      "10:45:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      77,
+      "12:52:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Ben Diaz",
+   "company": "",
+   "email": "ben.diaz18@example.com",
+   "phone": "(512) 555-6167",
+   "address": "2790 Parker Ln, Austin, TX 78741",
+   "lat": 30.227458366812,
+   "lon": -97.740487486729,
+   "stage": "Lead",
+   "value": 30700.0,
+   "source": "Repeat customer",
+   "tags": "cabinets, whole-home paint",
+   "notes": "Wants to finish before the holidays.",
+   "next_follow_up": 13,
+   "created": [
+    66,
+    "11:30:00"
+   ],
+   "updated": [
+    66,
+    "12:10:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Paige Mitchell",
+   "company": "",
+   "email": "paige.mitchell32@example.com",
+   "phone": "(512) 555-9850",
+   "address": "1783 S Lamar Blvd, Austin, TX 78704",
+   "lat": 30.250316744352,
+   "lon": -97.766018379983,
+   "stage": "Contacted",
+   "value": 36800.0,
+   "source": "Referral",
+   "tags": "outdoor living, kitchen remodel, window treatments",
+   "notes": "Asked about eco-friendly materials. Prefers weekend appointments.",
+   "next_follow_up": 5,
+   "created": [
+    129,
+    "18:03:00"
+   ],
+   "updated": [
+    40,
+    "09:36:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      51,
+      "09:53:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      40,
+      "09:36:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Dana Green",
+   "company": "",
+   "email": "dana.green45@example.com",
+   "phone": "(512) 555-8531",
+   "address": "8347 Cameron Rd, Austin, TX 78754",
+   "lat": 30.339889506221,
+   "lon": -97.681438537846,
+   "stage": "Qualified",
+   "value": 6300.0,
+   "source": "Walk-in",
+   "tags": "window treatments, lighting",
+   "notes": "Moving in 6 months; wants resale value.",
+   "next_follow_up": -3,
+   "created": [
+    199,
+    "18:41:00"
+   ],
+   "updated": [
+    57,
+    "15:35:00"
+   ],
+   "activities": [
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      157,
+      "16:29:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at window treatments samples.",
+     "at": [
+      57,
+      "15:35:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "James Martinez",
+   "company": "Rental owner",
+   "email": "james.martinez97@example.com",
+   "phone": "(512) 555-3602",
+   "address": "5764 Berkman Dr, Austin, TX 78723",
+   "lat": 30.311739981652,
+   "lon": -97.693980463277,
+   "stage": "Contacted",
+   "value": 26100.0,
+   "source": "Referral",
+   "tags": "cabinets",
+   "notes": "Saw our showroom display and loved the oak samples.",
+   "next_follow_up": 1,
+   "created": [
+    46,
+    "17:20:00"
+   ],
+   "updated": [
+    34,
+    "17:40:00"
+   ],
+   "activities": [
+    {
+     "kind": "Task",
+     "body": "Prepare revised quote for cabinets.",
+     "at": [
+      37,
+      "18:03:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for cabinets.",
+     "at": [
+      34,
+      "17:40:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Carlos Young",
+   "company": "",
+   "email": "carlos.young79@example.com",
+   "phone": "(512) 555-8053",
+   "address": "5042 Manchaca Rd, Austin, TX 78745",
+   "lat": 30.221127168341,
+   "lon": -97.793958450019,
+   "stage": "Lead",
+   "value": 14100.0,
+   "source": "Website",
+   "tags": "countertops, outdoor living, closet system",
+   "notes": "",
+   "next_follow_up": -10,
+   "created": [
+    11,
+    "13:14:00"
+   ],
+   "updated": [
+    11,
+    "09:19:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Jordan Mitchell",
+   "company": "",
+   "email": "jordan.mitchell22@example.com",
+   "phone": "(512) 555-4767",
+   "address": "4495 W William Cannon Dr, Austin, TX 78749",
+   "lat": 30.22291856288,
+   "lon": -97.840581352998,
+   "stage": "Contacted",
+   "value": 15300.0,
+   "source": "Facebook",
+   "tags": "whole-home paint, cabinets",
+   "notes": "Gate code needed; ask when confirming.",
+   "next_follow_up": 18,
+   "created": [
+    125,
+    "18:33:00"
+   ],
+   "updated": [
+    122,
+    "09:45:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      122,
+      "09:45:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Xavier Patel",
+   "company": "",
+   "email": "xavier.patel71@example.com",
+   "phone": "(512) 555-1722",
+   "address": "12667 Anderson Mill Rd, Austin, TX 78726",
+   "lat": 30.459668081369,
+   "lon": -97.841201224939,
+   "stage": "Qualified",
+   "value": 5400.0,
+   "source": "Referral",
+   "tags": "lighting",
+   "notes": "Flexible on budget if the design is right. Budget is firm.",
+   "next_follow_up": -8,
+   "created": [
+    76,
+    "10:41:00"
+   ],
+   "updated": [
+    5,
+    "15:36:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      67,
+      "17:28:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      58,
+      "15:14:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent lighting brochure and price ranges.",
+     "at": [
+      22,
+      "13:04:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent appointment confirmation.",
+     "at": [
+      5,
+      "15:36:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Wendy Walker",
+   "company": "",
+   "email": "wendy.walker52@example.com",
+   "phone": "(512) 555-6883",
+   "address": "2618 Guadalupe St, Austin, TX 78705",
+   "lat": 30.291093858216,
+   "lon": -97.741294546627,
+   "stage": "Qualified",
+   "value": 55200.0,
+   "source": "Walk-in",
+   "tags": "outdoor living, closet system, flooring",
+   "notes": "Wants to finish before the holidays.",
+   "next_follow_up": -1,
+   "created": [
+    216,
+    "10:15:00"
+   ],
+   "updated": [
+    72,
+    "15:17:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for outdoor living.",
+     "at": [
+      211,
+      "13:06:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Emailed financing info.",
+     "at": [
+      188,
+      "14:41:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      184,
+      "10:21:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      169,
+      "12:46:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      72,
+      "15:17:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Wendy White",
+   "company": "",
+   "email": "wendy.white54@example.com",
+   "phone": "(512) 555-8456",
+   "address": "4345 Far West Blvd, Austin, TX 78731",
+   "lat": 30.360487535823,
+   "lon": -97.773185795273,
+   "stage": "Contacted",
+   "value": 7300.0,
+   "source": "Website",
+   "tags": "lighting",
+   "notes": "HOA approval required for exterior work.",
+   "next_follow_up": 4,
+   "created": [
+    20,
+    "11:44:00"
+   ],
+   "updated": [
+    11,
+    "15:50:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      19,
+      "11:41:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      11,
+      "15:50:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Emily Walker",
+   "company": "Walker Properties LLC",
+   "email": "emily.walker54@example.com",
+   "phone": "(512) 555-2228",
+   "address": "1235 W Parmer Ln, Austin, TX 78758",
+   "lat": 30.40865469736,
+   "lon": -97.681218272119,
+   "stage": "Contacted",
+   "value": 33800.0,
+   "source": "Website",
+   "tags": "flooring, bathroom remodel, lighting",
+   "notes": "",
+   "next_follow_up": 19,
+   "created": [
+    128,
+    "16:08:00"
+   ],
+   "updated": [
+    66,
+    "13:22:00"
+   ],
+   "activities": [
+    {
+     "kind": "Note",
+     "body": "Requested a quote revision with mid-range materials.",
+     "at": [
+      105,
+      "15:31:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Requested a quote revision with mid-range materials.",
+     "at": [
+      66,
+      "13:22:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Andre Adams",
+   "company": "",
+   "email": "andre.adams9@example.com",
+   "phone": "(512) 555-8631",
+   "address": "6022 Spicewood Springs Rd, Austin, TX 78759",
+   "lat": 30.390544912016,
+   "lon": -97.775043104735,
+   "stage": "Proposal",
+   "value": 14000.0,
+   "source": "Website",
+   "tags": "countertops, window treatments",
+   "notes": "",
+   "next_follow_up": 21,
+   "created": [
+    175,
+    "14:56:00"
+   ],
+   "updated": [
+    51,
+    "17:57:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent appointment confirmation.",
+     "at": [
+      166,
+      "18:31:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      164,
+      "13:00:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      108,
+      "15:52:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at countertops samples.",
+     "at": [
+      51,
+      "17:57:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Priya Wright",
+   "company": "",
+   "email": "priya.wright98@example.com",
+   "phone": "(512) 555-4904",
+   "address": "4288 W William Cannon Dr, Austin, TX 78749",
+   "lat": 30.222176061818,
+   "lon": -97.838363755735,
+   "stage": "Lead",
+   "value": 14900.0,
+   "source": "Referral",
+   "tags": "countertops, flooring, lighting",
+   "notes": "",
+   "next_follow_up": 18,
+   "created": [
+    103,
+    "15:18:00"
+   ],
+   "updated": [
+    103,
+    "16:01:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Rachel Thomas",
+   "company": "",
+   "email": "rachel.thomas21@example.com",
+   "phone": "(512) 555-3480",
+   "address": "2301 Congress Ave S, Austin, TX 78704",
+   "lat": 30.239828653825,
+   "lon": -97.752795111008,
+   "stage": "Lead",
+   "value": 15800.0,
+   "source": "Website",
+   "tags": "closet system, bathroom remodel, lighting",
+   "notes": "Moving in 6 months; wants resale value.",
+   "next_follow_up": 11,
+   "created": [
+    77,
+    "12:37:00"
+   ],
+   "updated": [
+    77,
+    "17:03:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Jordan Wright",
+   "company": "",
+   "email": "jordan.wright60@example.com",
+   "phone": "(512) 555-0589",
+   "address": "1857 W Braker Ln, Austin, TX 78758",
+   "lat": 30.390743282625,
+   "lon": -97.704794997165,
+   "stage": "Qualified",
+   "value": 21200.0,
+   "source": "Google Ads",
+   "tags": "outdoor living, countertops",
+   "notes": "Flexible on budget if the design is right.",
+   "next_follow_up": 10,
+   "created": [
+    20,
+    "12:07:00"
+   ],
+   "updated": [
+    8,
+    "12:58:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Left voicemail about scheduling a consult.",
+     "at": [
+      18,
+      "13:29:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at outdoor living samples.",
+     "at": [
+      16,
+      "10:12:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at outdoor living samples.",
+     "at": [
+      8,
+      "12:58:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Rosa Diaz",
+   "company": "",
+   "email": "rosa.diaz12@example.com",
+   "phone": "(512) 555-4369",
+   "address": "4714 Far West Blvd, Austin, TX 78731",
+   "lat": 30.358995107177,
+   "lon": -97.780485565339,
+   "stage": "Won",
+   "value": 38900.0,
+   "source": "Referral",
+   "tags": "kitchen remodel, lighting",
+   "notes": "Prefers weekend appointments.",
+   "next_follow_up": null,
+   "created": [
+    21,
+    "18:28:00"
+   ],
+   "updated": [
+    11,
+    "11:26:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      14,
+      "12:41:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      12,
+      "18:00:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Signed contract for kitchen remodel, lighting.",
+     "at": [
+      11,
+      "11:26:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Prepare revised quote for kitchen remodel.",
+     "at": [
+      9,
+      "13:08:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Requested a quote revision with mid-range materials.",
+     "at": [
+      5,
+      "16:57:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Prepare revised quote for kitchen remodel.",
+     "at": [
+      4,
+      "10:02:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      2,
+      "09:18:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Tyler Lopez",
+   "company": "",
+   "email": "tyler.lopez68@example.com",
+   "phone": "(512) 555-2646",
+   "address": "1571 W Braker Ln, Austin, TX 78758",
+   "lat": 30.388264119869,
+   "lon": -97.699980096231,
+   "stage": "Qualified",
+   "value": 9200.0,
+   "source": "Home show",
+   "tags": "lighting, cabinets, whole-home paint",
+   "notes": "Comparing us with two other quotes. Asked about eco-friendly materials.",
+   "next_follow_up": -14,
+   "created": [
+    179,
+    "10:56:00"
+   ],
+   "updated": [
+    21,
+    "12:10:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for lighting.",
+     "at": [
+      74,
+      "15:08:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Discussed timeline and budget for lighting.",
+     "at": [
+      41,
+      "13:11:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      21,
+      "12:10:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Liam Parker",
+   "company": "",
+   "email": "liam.parker48@example.com",
+   "phone": "(512) 555-9910",
+   "address": "3909 Far West Blvd, Austin, TX 78731",
+   "lat": 30.35798992544,
+   "lon": -97.76298058894,
+   "stage": "Won",
+   "value": 14100.0,
+   "source": "Website",
+   "tags": "countertops",
+   "notes": "Gate code needed; ask when confirming.",
+   "next_follow_up": null,
+   "created": [
+    209,
+    "11:13:00"
+   ],
+   "updated": [
+    2,
+    "17:26:00"
+   ],
+   "activities": [
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      169,
+      "13:16:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Discussed timeline and budget for countertops.",
+     "at": [
+      124,
+      "11:05:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      79,
+      "18:20:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      66,
+      "09:09:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Signed contract for countertops.",
+     "at": [
+      2,
+      "17:26:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Grace Walker",
+   "company": "Rental owner",
+   "email": "grace.walker24@example.com",
+   "phone": "(512) 555-9013",
+   "address": "5994 S 1St St, Austin, TX 78745",
+   "lat": 30.203948510028,
+   "lon": -97.783838116663,
+   "stage": "Lead",
+   "value": 4500.0,
+   "source": "Google Ads",
+   "tags": "lighting",
+   "notes": "",
+   "next_follow_up": 13,
+   "created": [
+    190,
+    "09:11:00"
+   ],
+   "updated": [
+    190,
+    "12:50:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Wendy Davis",
+   "company": "",
+   "email": "wendy.davis4@example.com",
+   "phone": "(512) 555-4197",
+   "address": "2184 Exposition Blvd, Austin, TX 78703",
+   "lat": 30.295756935777,
+   "lon": -97.768921500663,
+   "stage": "Contacted",
+   "value": 3400.0,
+   "source": "Walk-in",
+   "tags": "closet system",
+   "notes": "Has two dogs, call before arriving. Moving in 6 months; wants resale value.",
+   "next_follow_up": 11,
+   "created": [
+    81,
+    "12:09:00"
+   ],
+   "updated": [
+    55,
+    "17:56:00"
+   ],
+   "activities": [
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      55,
+      "17:56:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Emily Johnson",
+   "company": "",
+   "email": "emily.johnson92@example.com",
+   "phone": "(512) 555-7816",
+   "address": "4015 Duval St, Austin, TX 78751",
+   "lat": 30.301492056232,
+   "lon": -97.728008960216,
+   "stage": "Proposal",
+   "value": 4800.0,
+   "source": "Referral",
+   "tags": "closet system, lighting, flooring",
+   "notes": "Works from home; weekday afternoons are best. Wants to finish before the holidays.",
+   "next_follow_up": 13,
+   "created": [
+    193,
+    "18:42:00"
+   ],
+   "updated": [
+    11,
+    "10:36:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      146,
+      "12:43:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent design mockups for review.",
+     "at": [
+      122,
+      "17:31:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Discussed timeline and budget for closet system.",
+     "at": [
+      11,
+      "10:36:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Priya Patel",
+   "company": "",
+   "email": "priya.patel81@example.com",
+   "phone": "(512) 555-5808",
+   "address": "3270 Congress Ave S, Austin, TX 78704",
+   "lat": 30.230533045539,
+   "lon": -97.759751333224,
+   "stage": "Contacted",
+   "value": 49400.0,
+   "source": "Referral",
+   "tags": "kitchen remodel",
+   "notes": "HOA approval required for exterior work.",
+   "next_follow_up": -2,
+   "created": [
+    116,
+    "18:23:00"
+   ],
+   "updated": [
+    99,
+    "16:36:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Intro call; walked through options for kitchen remodel.",
+     "at": [
+      104,
+      "16:18:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent appointment confirmation.",
+     "at": [
+      99,
+      "16:36:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Zoe Green",
+   "company": "",
+   "email": "zoe.green66@example.com",
+   "phone": "(512) 555-5410",
+   "address": "2493 E 7Th St, Austin, TX 78702",
+   "lat": 30.260877013716,
+   "lon": -97.713866157432,
+   "stage": "Lost",
+   "value": 25600.0,
+   "source": "Google Ads",
+   "tags": "outdoor living",
+   "notes": "Went with a competitor on price.",
+   "next_follow_up": null,
+   "created": [
+    206,
+    "12:44:00"
+   ],
+   "updated": [
+    11,
+    "14:52:00"
+   ],
+   "activities": [
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      170,
+      "12:03:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Asked us to check back after the holidays.",
+     "at": [
+      122,
+      "16:45:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "In-home consult; measured and photographed the space.",
+     "at": [
+      87,
+      "13:53:00"
+     ]
+    },
+    {
+     "kind": "Task",
+     "body": "Order samples for customer pickup.",
+     "at": [
+      11,
+      "14:52:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Caleb Parker",
+   "company": "Rental owner",
+   "email": "caleb.parker76@example.com",
+   "phone": "(512) 555-6976",
+   "address": "2609 E 7Th St, Austin, TX 78702",
+   "lat": 30.260697844456,
+   "lon": -97.712596555217,
+   "stage": "Qualified",
+   "value": 6000.0,
+   "source": "Website",
+   "tags": "closet system, window treatments",
+   "notes": "Interested in financing options.",
+   "next_follow_up": -1,
+   "created": [
+    25,
+    "11:07:00"
+   ],
+   "updated": [
+    14,
+    "09:14:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent closet system brochure and price ranges.",
+     "at": [
+      25,
+      "11:02:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Answered questions about warranty and install time.",
+     "at": [
+      22,
+      "15:19:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Left voicemail about scheduling a consult.",
+     "at": [
+      20,
+      "14:27:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Sent closet system brochure and price ranges.",
+     "at": [
+      19,
+      "09:10:00"
+     ]
+    },
+    {
+     "kind": "Call",
+     "body": "Follow-up call; still deciding between finishes.",
+     "at": [
+      14,
+      "09:14:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Raj Nguyen",
+   "company": "",
+   "email": "raj.nguyen74@example.com",
+   "phone": "(512) 555-5198",
+   "address": "4588 S Pleasant Valley Rd, Austin, TX 78744",
+   "lat": 30.201921216756,
+   "lon": -97.74228515901,
+   "stage": "Lead",
+   "value": 7300.0,
+   "source": "Google Ads",
+   "tags": "flooring, outdoor living",
+   "notes": "HOA approval required for exterior work.",
+   "next_follow_up": -7,
+   "created": [
+    46,
+    "09:24:00"
+   ],
+   "updated": [
+    33,
+    "18:24:00"
+   ],
+   "activities": [
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      33,
+      "18:24:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Grace Thomas",
+   "company": "Thomas Properties LLC",
+   "email": "grace.thomas44@example.com",
+   "phone": "(512) 555-7388",
+   "address": "5721 Manchaca Rd, Austin, TX 78745",
+   "lat": 30.214851315438,
+   "lon": -97.798423846892,
+   "stage": "Contacted",
+   "value": 11000.0,
+   "source": "Website",
+   "tags": "flooring",
+   "notes": "Asked about eco-friendly materials.",
+   "next_follow_up": 11,
+   "created": [
+    218,
+    "12:52:00"
+   ],
+   "updated": [
+    87,
+    "18:35:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Left voicemail about scheduling a consult.",
+     "at": [
+      170,
+      "18:38:00"
+     ]
+    },
+    {
+     "kind": "Email",
+     "body": "Emailed financing info.",
+     "at": [
+      156,
+      "10:18:00"
+     ]
+    },
+    {
+     "kind": "Note",
+     "body": "Mentioned a neighbor might also be interested.",
+     "at": [
+      87,
+      "18:35:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Derek Torres",
+   "company": "",
+   "email": "derek.torres81@example.com",
+   "phone": "(512) 555-9330",
+   "address": "8538 Burnet Rd, Austin, TX 78757",
+   "lat": 30.366377278844,
+   "lon": -97.728155778485,
+   "stage": "Qualified",
+   "value": 8400.0,
+   "source": "Google Ads",
+   "tags": "whole-home paint, flooring",
+   "notes": "Works from home; weekday afternoons are best.",
+   "next_follow_up": 18,
+   "created": [
+    88,
+    "16:48:00"
+   ],
+   "updated": [
+    3,
+    "14:14:00"
+   ],
+   "activities": [
+    {
+     "kind": "Call",
+     "body": "Discussed timeline and budget for whole-home paint.",
+     "at": [
+      31,
+      "16:49:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Reviewed proposal together at the store.",
+     "at": [
+      3,
+      "14:14:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Brooke Scott",
+   "company": "",
+   "email": "brooke.scott30@example.com",
+   "phone": "(512) 555-5174",
+   "address": "7742 Mesa Dr, Austin, TX 78731",
+   "lat": 30.367029985432,
+   "lon": -97.76039891916,
+   "stage": "Lost",
+   "value": 67000.0,
+   "source": "Google Ads",
+   "tags": "outdoor living, cabinets",
+   "notes": "Project postponed indefinitely. Interested in financing options.",
+   "next_follow_up": null,
+   "created": [
+    191,
+    "16:45:00"
+   ],
+   "updated": [
+    23,
+    "09:50:00"
+   ],
+   "activities": [
+    {
+     "kind": "Email",
+     "body": "Sent proposal PDF for outdoor living.",
+     "at": [
+      124,
+      "09:38:00"
+     ]
+    },
+    {
+     "kind": "Meeting",
+     "body": "Showroom visit; looked at outdoor living samples.",
+     "at": [
+      23,
+      "09:50:00"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Nora Garcia",
+   "company": "Rental owner",
+   "email": "nora.garcia11@example.com",
+   "phone": "(512) 555-0040",
+   "address": "1810 S Lamar Blvd, Austin, TX 78704",
+   "lat": 30.250534632636,
+   "lon": -97.765959302283,
+   "stage": "Lead",
+   "value": 19100.0,
+   "source": "Website",
+   "tags": "flooring, outdoor living",
+   "notes": "Moving in 6 months; wants resale value.",
+   "next_follow_up": 16,
+   "created": [
+    227,
+    "09:03:00"
+   ],
+   "updated": [
+    227,
+    "16:29:00"
+   ],
+   "activities": []
+  },
+  {
+   "name": "Kayla Evans",
+   "company": "Evans Properties LLC",
+   "email": "kayla.evans85@example.com",
+   "phone": "(512) 555-6030",
+   "address": "1819 W 35Th St, Austin, TX 78703",
+   "lat": 30.308252106326,
+   "lon": -97.753547868657,
+   "stage": "Lead",
+   "value": 56600.0,
+   "source": "Google Ads",
+   "tags": "bathroom remodel, countertops, cabinets",
+   "notes": "Flexible on budget if the design is right.",
+   "next_follow_up": -14,
+   "created": [
+    100,
+    "16:26:00"
+   ],
+   "updated": [
+    100,
+    "17:29:00"
+   ],
+   "activities": []
+  }
+ ]
+}
