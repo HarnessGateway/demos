@@ -1,24 +1,49 @@
 {
   "contract": 1,
   "name": "social-claude-code",
-  "version": "2.1.318-1",
-  "description": "A social media manager agent on Claude Code: given a campaign (a URL or pasted text to promote, the goal, the audience, the brand's voice and the platforms), it reads the source and writes engagement drafts in each platform's idiom — X, LinkedIn, Instagram, Threads, Bluesky, Mastodon, Facebook — plus a cross-posting plan (sequence, UTM backlinks, cross-links) as /workspace/campaigns/<slug>/plan.json, one markdown file per platform, and a strategy note. It never posts: a person approves each draft in the app. Web tools are read-only; the PreToolUse hook and deny list refuse any POST, any social-platform API, any write outside /workspace, git remote operations and runtime installs.",
-  "provider": {"apis": ["anthropic"]},
-  "defaults": {"model": "deepseek-v4-pro"},
-  "install": {"egress": ["registry.npmjs.org"], "timeout_s": 1200},
-  "run": {"egress": ["*"], "timeout_s": 900, "stop_grace_s": 10},
-  "persist": [".claude/projects"],
+  "version": "2.1.319-1",
+  "description": "A social media manager agent on Anthropic's Claude Code CLI (@anthropic-ai/claude-code 2.1.319). Given a campaign (a URL to read or pasted text, the goal, the audience, the brand voice, and the platforms), it reads the source, then writes an engagement draft for each platform in that platform's own idiom and limits (X 280-character thread, LinkedIn 1,300 with the first two lines carrying it, Instagram caption with alt text, Threads, Bluesky 300, Mastodon 500, Facebook), plans cross-posting with per-platform UTM backlinks and cross-links, and writes plan.json, one markdown file per platform and strategy.md under /workspace/campaigns/<slug>/. It answers in prose and ends every answer with one fenced social-plan block holding the same JSON as plan.json. It never posts anywhere: a person approves each draft in the app, which schedules it. Read-only public web, no MCP servers; its own permission rules and a PreToolUse hook refuse posting, calling any social platform's API, writing outside /workspace, git remote operations, and installing software.",
+  "provider": {
+    "apis": [
+      "anthropic"
+    ]
+  },
+  "defaults": {
+    "model": "deepseek-v4-pro"
+  },
+  "install": {
+    "egress": [
+      "registry.npmjs.org"
+    ],
+    "timeout_s": 1200
+  },
+  "run": {
+    "egress": [
+      "*",
+      "!api.twitter.com",
+      "!api.x.com",
+      "!graph.facebook.com",
+      "!api.linkedin.com",
+      "!api.threads.net",
+      "!bsky.social"
+    ],
+    "timeout_s": 900,
+    "stop_grace_s": 10
+  },
+  "persist": [
+    ".claude/projects"
+  ],
   "settings": {
     "BRAND_VOICE": {
-      "description": "The brand's voice and what it never says, in one short text.",
-      "default": "A friendly, plain-spoken B2B software company. Never hype, never jargon, never promise results the product cannot show."
+      "description": "The brand's voice and what it never says; every draft is written in this voice.",
+      "default": "A friendly, plain-spoken B2B software company. It never boasts, never invents numbers, never disparages competitors or people."
     },
     "HASHTAG_MAX": {
-      "description": "The most hashtags per post.",
+      "description": "The most hashtags allowed on any one post.",
       "default": "5"
     },
     "TIMEZONE": {
-      "description": "The timezone for the schedule in plan.json.",
+      "description": "IANA timezone used to render the schedule (relative day/time) as ISO 8601 date-times in plan.json.",
       "default": "America/Chicago"
     }
   }

@@ -2,35 +2,11 @@
   "contract": 1,
   "name": "journalist-pi",
   "version": "0.73.1-1",
-  "description": "A commodities-market journalist agent on the pi coding agent. Given a desk (biofuels or crude-oil) and an assignment, it gathers intel from the desk's primary sources, forms impressions (what moved, why it matters, what to watch), and authors a cited report into the workspace: a draft story, sources.json, verify.md, and PNG charts when numbers warrant. Every number is cited to a source URL; nothing is invented and nothing is published.",
-  "provider": {
-    "apis": ["anthropic"]
-  },
-  "defaults": {
-    "model": "deepseek-v4-pro"
-  },
-  "install": {
-    "egress": ["registry.npmjs.org", "pypi.org", "files.pythonhosted.org"],
-    "timeout_s": 1200
-  },
-  "run": {
-    "egress": [
-      "www.eia.gov",
-      "www.epa.gov",
-      "ww2.arb.ca.gov",
-      "www.federalregister.gov",
-      "www.ams.usda.gov",
-      "www.ers.usda.gov"
-    ],
-    "timeout_s": 1200,
-    "stop_grace_s": 15
-  },
+  "description": "A commodities-market desk journalist on pi (the pi coding agent CLI). Given a desk (biofuels or crude-oil) and an assignment, it reads the desk pack, gathers intel from the desk's primary sources (EIA, EPA, CARB, Federal Register, USDA AMS/ERS), forms impressions and drafts a cited story into /workspace/desk/<YYYY-MM-DD>/<desk>-<slug>/ (draft.md, sources.json, verify.md, matplotlib PNG charts), then answers in prose ending with one desk-report JSON block. Draft only: it sources every number, invents nothing, and never publishes.",
+  "provider": {"apis": ["anthropic"]},
+  "defaults": {"model": "deepseek-v4-pro"},
+  "install": {"egress": ["registry.npmjs.org", "pypi.org", "files.pythonhosted.org"], "timeout_s": 1200},
+  "run": {"egress": ["www.eia.gov", "api.eia.gov", "www.epa.gov", "ww2.arb.ca.gov", "www.federalregister.gov", "www.ams.usda.gov", "www.ers.usda.gov"], "timeout_s": 1200, "stop_grace_s": 10},
   "persist": [".pi/agent/sessions"],
-  "settings": {
-    "DESK": {
-      "description": "The desk this package reports for (biofuels or crude-oil) when the request does not name one in metadata.desk",
-      "default": "biofuels"
-    }
-  },
-  "secrets": {}
+  "settings": {"DESK": {"description": "Default desk when the request's metadata.desk is absent (biofuels or crude-oil)", "default": "biofuels"}}
 }

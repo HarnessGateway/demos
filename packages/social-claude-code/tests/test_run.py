@@ -1,138 +1,165 @@
-#!/usr/bin/env python3
-"""Runs `run` against a stub `claude` that replays recorded stream-json fixtures, and checks the mapped output
-with hgkit.check — the same validator the platform runs. No live provider is used.
-
-    python3 tests/test_run.py
-"""
+"""The social-claude-code package, tested the way the sandbox runs it: `run` with a fake `claude` on PATH that
+replays a recorded stream, and the PreToolUse guard fed tool calls directly. Every output line is checked with
+hgkit's reader — the one the platform itself uses."""
 import json
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
+import uuid
 from pathlib import Path
+from typing import NamedTuple
+
+from hgkit import check
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / "run"
-FIX = ROOT / "tests" / "fixtures"
-
-# hgkit ships on the sandbox image at /opt/hg/lib.
-if "/opt/hg/lib" not in sys.path:
-    sys.path.insert(0, "/opt/hg/lib")
-from hgkit import check  # noqa: E402
-
-FAKE = """#!/usr/bin/env bash
-# Replays recorded claude stream-json; FAKE_FIXTURES is colon-separated, one per invocation.
-idx_file="${FAKE_IDX_FILE:-/tmp/fake-idx.txt}"
-n=0; [ -f "$idx_file" ] && n=$(cat "$idx_file")
-IFS=':' read -ra fxs <<< "${FAKE_FIXTURES}"
-fx="${fxs[$n]}"; [ -z "$fx" ] && fx="${fxs[0]}"
-echo $((n+1)) > "$idx_file"
-printf '%s\\n' "$@" > "${FAKE_ARGS_FILE:-/tmp/fake-args.txt}"
-cat "$fx"
-cat "${FAKE_STDERR:-/dev/null}" >&2
-exit "${FAKE_EXIT:-0}"
-"""
+FAKE = ROOT / "tests" / "fake_claude"
+FIXTURES = ROOT / "tests" / "fixtures"
+GUARD = ROOT / "seeds" / "home" / ".claude" / "hooks" / "guard.py"
+HGKIT = Path("/opt/hg/lib")          # hgkit lives here in the sandbox image
+PLACEHOLDER = "hgs_placeholder_test"  # the secret placeholder a turn would see; must never reach the output
 
 
-def scenario(name, fixtures, request, exit_code=0, state_session=None, history=None, expect_status="completed"):
-    tmp = Path(tempfile.mkdtemp(prefix="hgpkg-"))
-    bin_dir = tmp / "bin"
-    bin_dir.mkdir()
-    (tmp / "ws").mkdir()
-    (tmp / "state").mkdir()
-    (tmp / "home").mkdir()
-    (tmp / "files").mkdir()
-    fake = bin_dir / "claude"
-    fake.write_text(FAKE)
-    fake.chmod(0o755)
-    args_file = tmp / "fake-args.txt"
-    idx_file = tmp / "fake-idx.txt"
-    env = dict(os.environ)
-    env.update({
-        "HG_REQUEST": str(tmp / "request.json"),
-        "HG_MODEL": "deepseek-v4-pro",
-        "HG_PROVIDER_URL": "http://hg-door:8080",
-        "HG_PROVIDER_TOKEN": "test-token",
-        "HG_PROVIDER_API": "anthropic",
-        "HG_WORKSPACE": str(tmp / "ws"),
-        "HG_STATE": str(tmp / "state"),
-        "HG_HISTORY": str(tmp / "history.json"),
-        "HG_FILES": str(tmp / "files"),
-        "HG_MCP": str(tmp / "mcp.json"),
-        "HG_TOOLS": str(tmp),
-        "HG_PACKAGE_VERSION": "2.1.318-1",
-        "HG_SESSION": "sess_" + name,
-        "HG_RESPONSE": "resp_" + name,
-        "HG_TURN": "1",
-        "HOME": str(tmp / "home"),
-        "PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""),
-        "FAKE_FIXTURES": ":".join(str(FIX / f) for f in fixtures),
-        "FAKE_EXIT": str(exit_code),
-        "FAKE_ARGS_FILE": str(args_file),
-        "FAKE_IDX_FILE": str(idx_file),
-    })
-    (tmp / "request.json").write_text(json.dumps(request))
-    if state_session is not None:
-        (tmp / "state" / "session").write_text(state_session)
+class Turn(NamedTuple):
+    outcome: object
+    argv: str
+    stdin: str
+    stdout: str
+
+
+def turn(tmp_path: Path, body: dict, fixture: str, history: dict | None = None, env_extra: dict | None = None) -> Turn:
+    """One turn of `run` against the fake claude; returns the outcome and what the fake claude saw."""
+    request = tmp_path / "request.json"
+    request.write_text(json.dumps(body))
+    bindir = tmp_path / "bin"
+    bindir.mkdir(exist_ok=True)
+    (bindir / "claude").write_text(FAKE.read_text())
+    (bindir / "claude").chmod(0o755)
+    (tmp_path / "ws").mkdir(exist_ok=True)
+    fake_log = tmp_path / f"fake-{uuid.uuid4().hex}.log"   # fresh per turn: the fake appends, so a shared log would
+    env = {**os.environ,                                    # leave this turn reading the previous turn's ARGV line
+           "HG_REQUEST": str(request), "HG_WORKSPACE": str(tmp_path / "ws"), "HG_STATE": str(tmp_path / "state"),
+           "HOME": str(tmp_path / "home"), "HG_MODEL": "deepseek-v4-pro",
+           "HG_PROVIDER_URL": "https://api.deepseek.com/anthropic", "HG_PROVIDER_TOKEN": PLACEHOLDER,
+           "HG_PACKAGE_VERSION": "2.1.319-1",
+           "PYTHONPATH": f"{HGKIT}{os.pathsep}{os.environ.get('PYTHONPATH', '')}",
+           "PATH": f"{bindir}{os.pathsep}{os.environ.get('PATH', '')}",
+           "FAKE_FIXTURE": str(FIXTURES / fixture), "FAKE_LOG": str(fake_log)}
     if history is not None:
-        (tmp / "history.json").write_text(json.dumps(history))
-    proc = subprocess.run([str(RUN)], env=env, capture_output=True, text=True, timeout=120)
-    return proc, args_file, tmp
+        hist = tmp_path / "history.json"
+        hist.write_text(json.dumps(history))
+        env["HG_HISTORY"] = str(hist)
+    if env_extra:
+        env.update(env_extra)
+    proc = subprocess.run([sys.executable, str(RUN)], cwd=tmp_path / "ws", env=env,
+                          capture_output=True, text=True)
+    log = fake_log.read_text() if fake_log.exists() else ""
+    argv = next((l for l in log.splitlines() if l.startswith("ARGV:")), "")
+    stdin = "\n".join(l for l in log.splitlines() if not l.startswith("ARGV:"))
+    _events, outcome = check(proc.stdout)
+    return Turn(outcome, argv, stdin, proc.stdout)
 
 
-def main():
-    cases = [
-        ("text", ["claude-text.jsonl"], {"input": "Reply with exactly: pong"}, 0, None, None, "completed"),
-        ("tools", ["claude-tools.jsonl"], {"input": "create hello.txt then cat it"}, 0, None, None, "completed"),
-        ("error", ["claude-error.jsonl"], {"input": "hi"}, 1, None, None, "failed"),
-        ("killed", ["claude-killed.jsonl"], {"input": "slow command"}, 143, None, None, "failed"),
-        ("resume", ["claude-text.jsonl"], {"input": "what did we do?"}, 0, "abc-123", None, "completed"),
-        ("history", ["claude-text.jsonl"], {"input": "what did we do?"}, 0, None,
-         [{"id": "r1", "status": "completed", "input": [{"type": "message", "role": "user",
-                                                        "content": "make a file pear.txt"}],
-           "output": [{"type": "message", "role": "assistant",
-                       "content": [{"type": "output_text", "text": "made pear.txt"}]}]}], "completed"),
-        ("stale-resume", ["claude-session-missing.jsonl", "claude-text.jsonl"], {"input": "what did we do?"}, 1,
-         "00000000-0000-0000-0000-000000000000",
-         [{"id": "r1", "status": "completed", "input": [{"type": "message", "role": "user",
-                                                        "content": "make a file pear.txt"}],
-           "output": [{"type": "message", "role": "assistant",
-                       "content": [{"type": "output_text", "text": "made pear.txt"}]}]}], "completed"),
-    ]
-    failures = 0
-    for name, fixtures, request, exit_code, state_session, history, status in cases:
-        proc, args_file, tmp = scenario(name, fixtures, request, exit_code, state_session, history, status)
-        try:
-            events, outcome = check(proc.stdout)
-        except Exception as e:  # hgkit.OutputError
-            print(f"FAIL {name}: hgkit.check raised {e}")
-            failures += 1
-            shutil.rmtree(tmp, ignore_errors=True)
-            continue
-        ok = outcome.status == status
-        args = args_file.read_text().strip() if args_file.exists() else ""
-        if name == "resume" and not ("--resume" in args and "abc-123" in args):
-            ok = False
-            print(f"FAIL {name}: expected --resume abc-123 in argv, got: {args[:200]}")
-        if name == "history" and "--resume" in args:
-            ok = False
-            print(f"FAIL {name}: expected a fresh session (no --resume), got: {args[:200]}")
-        if name == "history" and "[Earlier in this conversation]" not in args:
-            ok = False
-            print(f"FAIL {name}: expected history text in the prompt")
-        if name == "stale-resume" and "[Earlier in this conversation]" not in args:
-            ok = False
-            print(f"FAIL {name}: expected fallback to history after the stale resume")
-        if not ok:
-            print(f"FAIL {name}: status={outcome.status} (wanted {status})")
-            failures += 1
-        else:
-            print(f"ok   {name}: {outcome.status} ({len(events)} events)")
-        shutil.rmtree(tmp, ignore_errors=True)
-    print(f"{len(cases) - failures}/{len(cases)} scenarios passed")
-    return 1 if failures else 0
+def test_a_completed_turn(tmp_path):
+    t = turn(tmp_path, {"input": "do the fixture thing"}, "success.jsonl")
+    assert t.outcome.status == "completed"
+    kinds = [i["type"] for i in t.outcome.output]
+    assert kinds == ["message", "shell_call", "shell_call_output", "message"]
+    text = "".join(p.get("text", "") for i in t.outcome.output if i["type"] == "message"
+                   for p in i["content"] if p.get("type") == "output_text")
+    assert "Hello from the fixture." in text
+    assert t.outcome.output[1]["action"]["commands"] == ["echo fixture-ok"]
+    assert t.outcome.metadata["claude_session_id"] == "11111111-1111-4111-8111-111111111111"
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+def test_denied_bash_maps_the_refusal(tmp_path):
+    t = turn(tmp_path, {"input": "post something"}, "denied_post.jsonl")
+    assert t.outcome.status == "completed"
+    result = t.outcome.output[1]
+    assert result["type"] == "shell_call_output"
+    assert "would send data (POST/PUT/PATCH/DELETE)" in result["output"][0]["stderr"]
+    assert result["output"][0]["outcome"] == {"type": "exit", "exit_code": 1}
+
+
+def test_deny_list_git_is_refused(tmp_path):
+    t = turn(tmp_path, {"input": "push it"}, "denied_git.jsonl")
+    assert t.outcome.status == "completed"
+    result = t.outcome.output[1]
+    assert "has been denied" in result["output"][0]["stderr"]
+
+
+def test_provider_error_fails_the_turn(tmp_path):
+    t = turn(tmp_path, {"input": "say hi"}, "provider_error.jsonl")
+    assert t.outcome.status == "failed"
+    assert t.outcome.error["code"] == "authentication_error"
+
+
+def test_max_turns_stops_incomplete(tmp_path):
+    t = turn(tmp_path, {"input": "long job"}, "max_turns.jsonl")
+    assert t.outcome.status == "incomplete"
+    assert t.outcome.incomplete["reason"] == "max_messages"
+
+
+def test_session_is_saved_then_resumed(tmp_path):
+    t1 = turn(tmp_path, {"input": "first"}, "success.jsonl")
+    assert "--resume" not in t1.argv
+    sid = (tmp_path / "state" / "session").read_text().strip()
+    assert sid == "11111111-1111-4111-8111-111111111111"
+    t2 = turn(tmp_path, {"input": "second"}, "success.jsonl")
+    assert f"--resume {sid}" in t2.argv
+
+
+def test_history_continues_when_no_session(tmp_path):
+    prior = [{"id": "resp_prior", "status": "completed",
+              "input": [{"type": "message", "role": "user",
+                         "content": [{"type": "input_text", "text": "Remember the number 7."}]}],
+              "output": [{"type": "message", "role": "assistant",
+                          "content": [{"type": "output_text", "text": "ok"}]}]}]
+    t = turn(tmp_path, {"input": "what number?"}, "success.jsonl", history=prior)
+    assert t.outcome.status == "completed"
+    assert "Earlier in this conversation" in t.stdin and "Remember the number 7." in t.stdin
+
+
+def test_metadata_names_the_campaign(tmp_path):
+    body = {"input": "draft it", "metadata": {"campaign": "launch", "platforms": ["x", "linkedin"]}}
+    t = turn(tmp_path, body, "success.jsonl")
+    assert "Campaign slug: launch" in t.stdin and "Platforms to post on: x, linkedin" in t.stdin
+
+
+def test_no_secret_reaches_the_output(tmp_path):
+    t = turn(tmp_path, {"input": "do the fixture thing"}, "success.jsonl")
+    assert PLACEHOLDER not in t.stdout
+
+
+def test_empty_input_fails(tmp_path):
+    t = turn(tmp_path, {"input": ""}, "success.jsonl")
+    assert t.outcome.status == "failed" and t.outcome.error["code"] == "invalid_prompt"
+
+
+def _guard(tool: dict) -> str:
+    """The PreToolUse guard, run as Claude Code runs it (JSON on stdin, the deny decision on stdout)."""
+    env = {**os.environ, "HG_WORKSPACE": "/workspace"}
+    proc = subprocess.run([sys.executable, str(GUARD)], input=json.dumps(tool),
+                          capture_output=True, text=True, env=env)
+    return proc.stdout
+
+
+def test_guard_allows_reads_and_workspace_writes():
+    assert _guard({"tool_name": "Bash", "tool_input": {"command": "curl -sL https://example.com/article"}}) == ""
+    assert _guard({"tool_name": "Write", "tool_input": {"file_path": "/workspace/campaigns/slug/x.md"}}) == ""
+    assert _guard({"tool_name": "WebFetch", "tool_input": {"url": "https://example.com/article"}}) == ""
+
+
+def test_guard_denies_posting_social_hosts_and_outside_writes():
+    for cmd in ["curl -X POST -d x=1 https://example.com/submit",
+                "wget --post-data x=1 https://example.com/submit",
+                "http POST https://example.com/submit x=1"]:
+        assert "would send data" in _guard({"tool_name": "Bash", "tool_input": {"command": cmd}})
+    for url in ["https://api.twitter.com/2/tweets", "https://bsky.social/xrpc/x"]:
+        assert "social platform's API host" in _guard({"tool_name": "WebFetch", "tool_input": {"url": url}})
+    assert "social platform's API host" in _guard(
+        {"tool_name": "Bash", "tool_input": {"command": "curl -s https://api.twitter.com/2/tweets"}})
+    assert "under /api/" in _guard(
+        {"tool_name": "Bash", "tool_input": {"command": "curl -s https://mastodon.social/api/v1/timelines/public"}})
+    assert "outside the workspace" in _guard({"tool_name": "Write", "tool_input": {"file_path": "/etc/x.txt"}})
+    assert "outside the workspace" in _guard({"tool_name": "Edit", "tool_input": {"file_path": "~/x.md"}})

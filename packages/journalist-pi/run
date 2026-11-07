@@ -1,304 +1,267 @@
 #!/usr/bin/env python3
-"""journalist-pi: one turn of the commodities-market journalist. The request's assignment (with
-metadata.desk and metadata.task) runs as pi; pi's JSON event stream is mapped to Responses events.
-The agent authors its drafts into the workspace; it never publishes."""
+"""journalist-pi: one turn of the pi coding agent as the newsroom's market-desk journalist.
+
+The request becomes pi's prompt; pi's JSON-mode events become Responses events. pi runs headless against the
+platform's provider (Anthropic shape), with the provider's base URL and model written into ~/.pi/agent/models.json
+each turn. The pi session id is saved to state the moment pi reports it; the next turn resumes it, or — when there is
+no id, or pi refuses it — starts a fresh pi session and gives it the conversation from the history.
+"""
 import json
 import os
-import queue
+import re
 import signal
 import subprocess
+import sys
 import threading
-import time
+from pathlib import Path
 
 from hgkit import Emitter, Request
 
-HG_TOOLS = os.environ.get("HG_TOOLS", "/opt/hg/tools")
-PI = os.path.join(HG_TOOLS, "node_modules", ".bin", "pi")
+TOOLS = Path(os.environ.get("HG_TOOLS", "/opt/hg/tools"))
+PI = TOOLS / "bin" / "pi"
+VENV_BIN = TOOLS / "venv" / "bin"
+REPLAY = os.environ.get("JOURNALIST_PI_REPLAY", "")   # tests: replay a recorded pi JSON stream instead of spawning
+THINKING = {"off", "minimal", "low", "medium", "high", "xhigh"}
 
-# harness.json sets run.timeout_s 1200; leave a margin for the terminal event and a graceful SIGTERM.
-TURN_TIMEOUT = 1140.0
+req, out = Request.load(), Emitter()
 
-BASH, WRITE, EDIT = "bash", "write", "edit"
-IGNORED = ("temperature", "top_p", "max_output_tokens", "max_tool_calls", "text", "tools")
-THINKING = {"none": "off", "off": "off", "minimal": "minimal", "low": "low", "medium": "medium",
-            "high": "high", "xhigh": "xhigh"}
+provider = req.provider
+if provider is None:
+    out.failed("server_error", "no provider available for this turn")
+    sys.exit(0)
+model = req.model or "deepseek-v4-pro"
+token = provider.token or ""
 
+def clean(text: str) -> str:
+    """Never let the turn's token (a placeholder) reach the client."""
+    return text.replace(token, "***") if token else text
 
-def write_models_json(url, model):
-    """Point the anthropic provider at the gateway and register this turn's model (HG_MODEL)."""
-    path = os.path.join(os.environ.get("HOME", "/root"), ".pi", "agent", "models.json")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    data = {
-        "providers": {
-            "anthropic": {
-                "baseUrl": url,          # no /v1: pi appends /v1/messages
-                "api": "anthropic-messages",
-                "models": [{
-                    "id": model, "name": model, "reasoning": True, "input": ["text"],
-                    "contextWindow": 200000, "maxTokens": 16384,
-                }],
-            }
-        }
-    }
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+# The desk and task kind: request metadata overrides the DESK setting, which defaults to biofuels.
+meta = req.get("metadata") or {}
+desk = str(meta.get("desk") or os.environ.get("DESK") or "biofuels").strip() or "biofuels"
+task = str(meta.get("task") or "").strip() or "briefing"
 
-
-def find_session_file(session_id):
-    if not session_id:
-        return None
-    root = os.path.join(os.environ.get("HOME", "/root"), ".pi", "agent", "sessions")
-    if not os.path.isdir(root):
-        return None
-    for dirpath, _dirs, files in os.walk(root):
-        for name in files:
-            if name.endswith(session_id + ".jsonl"):
-                return os.path.join(dirpath, name)
-    return None
+# pi's model registry: point the anthropic provider at this platform's provider and model. Written each turn so the
+# base URL always matches the gateway this turn runs behind (models.json is reseeded, never carried between turns).
+agent_dir = Path(os.environ.get("PI_CODING_AGENT_DIR") or (Path.home() / ".pi" / "agent"))
+agent_dir.mkdir(parents=True, exist_ok=True)
+(agent_dir / "models.json").write_text(json.dumps({
+    "providers": {"anthropic": {
+        "baseUrl": provider.url.rstrip("/"),
+        "apiKey": "ANTHROPIC_API_KEY",
+        "api": "anthropic-messages",
+        "models": [{"id": model, "name": model, "reasoning": True,
+                    "input": ["text", "image"], "contextWindow": 128000, "maxTokens": 16384}],
+    }},
+}, indent=2))
 
 
-def _text_of(result):
-    out = []
-    for c in (result or {}).get("content") or []:
-        if isinstance(c, dict) and c.get("type") == "text":
-            out.append(c.get("text", ""))
-    return "\n".join(out)
+def extract_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    return "\n".join(p.get("text", "") for p in content or []
+                     if isinstance(p, dict) and p.get("type") == "text")
 
 
-def _edit_texts(args):
-    edits = args.get("edits") if isinstance(args, dict) else None
+def edit_diff(args: dict) -> str:
+    edits = args.get("edits")
+    pairs = []
     if isinstance(edits, list) and edits:
-        olds, news = [], []
-        for e in edits:
-            if isinstance(e, dict):
-                olds.append(str(e.get("oldText", "")))
-                news.append(str(e.get("newText", "")))
-        return "\n".join(olds), "\n".join(news)
-    if isinstance(args, dict) and args.get("oldText") is not None:
-        return str(args["oldText"]), str(args.get("newText", ""))
-    return "", ""
+        pairs = [(e.get("oldText", ""), e.get("newText", "")) for e in edits if isinstance(e, dict)]
+    elif "oldText" in args:
+        pairs = [(args.get("oldText", ""), args.get("newText", ""))]
+    parts = []
+    for old, new in pairs:
+        parts.append("@@\n" + "\n".join("-" + ln for ln in old.split("\n")) +
+                     "\n" + "\n".join("+" + ln for ln in new.split("\n")))
+    return "\n".join(parts)
 
 
-def _error_code(msg):
-    low = (msg or "").lower()
-    if "401" in msg or "403" in msg or "auth" in low or "credential" in low:
-        return "authentication_error"
-    if "429" in msg or "rate" in low or "quota" in low or "overloaded" in low:
-        return "rate_limit_exceeded"
-    if "400" in msg or "invalid" in low:
-        return "invalid_prompt"
-    return "server_error"
+def emit_tool(name: str, args: dict, text: str) -> None:
+    args = args or {}
+    text = clean(text)
+    if name == "bash":
+        cmd = str(args.get("command", ""))
+        m = re.search(r"Command exited with code (\d+)", text)
+        exit_code = int(m.group(1)) if m else 0
+        out.ran(cmd, stdout=text, exit=exit_code)
+    elif name == "write":
+        out.wrote(str(args.get("path", "")), str(args.get("content", "")), output=text)
+    elif name == "edit":
+        diff = edit_diff(args)
+        out.edited(str(args.get("path", "")), diff, output=text)
+    else:  # read, ls, find, grep, and any future built-in
+        out.used(name, args, text)
 
 
-def map_stream(lines, out, save_session=None):
-    """Feed pi's JSON lines into the Responses emitter. Returns a summary of the turn."""
-    state = {"streamed": False, "ended": False, "error": "",
-             "usage": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}}
-    pending = {}
-    for raw in lines:
-        raw = raw.rstrip("\n")
-        if not raw.strip():
+def classify(message: str) -> tuple[str, str]:
+    m = (message or "").lower()
+    if "429" in m or "rate limit" in m or "rate_limit" in m:
+        return "rate_limit_exceeded", message
+    if "401" in m or "authentication" in m or "invalid api" in m:
+        return "authentication_error", message
+    if any(c in m for c in ("500", "502", "503", "504", "529", "overloaded", "server error")):
+        return "server_error", message
+    return "provider_error", message
+
+
+def run_pi(args: list[str], prompt: str, replay: str | None = None) -> dict:
+    """Run pi, streaming its JSON events into Responses events. Returns what happened."""
+    env = {
+        **os.environ,
+        "ANTHROPIC_API_KEY": token,
+        "PI_OFFLINE": "1",             # no pi.dev version check / install telemetry at startup
+        "PI_SKIP_VERSION_CHECK": "1",
+        "PI_TELEMETRY": "0",
+        "MPLBACKEND": "Agg",           # matplotlib renders to PNG, never a window
+        "PATH": f"{VENV_BIN}:{TOOLS / 'bin'}:{os.environ.get('PATH', '')}",
+    }
+    result = {"refused": False, "session_id": "", "saw_session": False, "saw_agent_end": False,
+              "usage": {"input": 0, "output": 0, "cached": 0, "cache_write": 0},
+              "error": "", "incomplete": "", "signalled": False}
+    pending: dict[str, tuple] = {}
+    signalled = threading.Event()
+
+    replay_path = REPLAY if replay is None else replay
+    if replay_path:
+        lines = Path(replay_path).read_text().splitlines()
+        proc = None
+        iterator = iter(lines)
+    else:
+        # pi reads the turn's prompt from stdin, not from a positional argument (positional args are files).
+        proc = subprocess.Popen([str(PI), *args], cwd=str(req.workspace), env=env,
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, bufsize=1)
+        proc.stdin.write(prompt)
+        proc.stdin.close()
+
+        def _drain():
+            for raw in proc.stderr:
+                out.log("pi " + clean(raw.rstrip("\n")))
+        threading.Thread(target=_drain, daemon=True).start()
+
+        def _forward(sig, _frame):
+            signalled.set()
+            if proc.poll() is None:
+                proc.send_signal(sig)
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, _forward)
+        iterator = proc.stdout
+
+    for raw in iterator:
+        line = raw.strip()
+        if not line:
+            continue
+        if not line.startswith("{"):
+            if result["session_id"] == "" and "No session found" in line:
+                result["refused"] = True
+                break
+            out.log("pi " + clean(line))
             continue
         try:
-            d = json.loads(raw)
+            event = json.loads(line)
         except ValueError:
-            out.log("pi " + raw[:200])
+            out.log("pi " + clean(line))
             continue
-        t = d.get("type")
-        if t == "session":
-            if save_session:
-                save_session(d.get("id", ""))
-            out.log("pi session " + str(d.get("id", "")))
-        elif t == "message_update":
-            ev = d.get("assistantMessageEvent") or {}
-            et = ev.get("type")
-            delta = ev.get("delta") or ""
-            if et == "text_delta" and delta:
-                out.say(delta)
-                state["streamed"] = True
-            elif et == "thinking_delta" and delta:
-                out.think(delta)
-        elif t == "message_end":
-            m = d.get("message") or {}
-            if m.get("role") == "assistant" and m.get("stopReason") == "error":
-                state["error"] = (m.get("errorMessage") or "").strip() or "provider error"
-        elif t == "tool_execution_start":
-            name = d.get("toolName", "")
-            args = d.get("args") if isinstance(d.get("args"), dict) else {}
-            cid = d.get("toolCallId") or ""
-            pending[cid] = (name, args, out.ran(str(args.get("command", ""))) if name == BASH else None)
-        elif t == "tool_execution_end":
-            cid = d.get("toolCallId") or ""
-            name, args, run = pending.pop(cid, (None, None, None))
-            if name is None:
-                continue
-            text = _text_of(d.get("result"))
-            is_err = bool(d.get("isError"))
-            if name == BASH:
-                run.done(stdout=text, exit=1 if is_err else 0)
-            elif name == WRITE:
-                out.wrote(str(args.get("path", "")), str(args.get("content", "")),
-                          ok=not is_err, output=text if is_err else "")
-            elif name == EDIT:
-                old, new = _edit_texts(args)
-                out.edited(str(args.get("path", "")), old=old, new=new,
-                           ok=not is_err, output=text if is_err else "")
-            else:  # read, grep, find, ls
-                out.used(name, args, text, ok=not is_err)
-        elif t == "agent_end":
-            state["ended"] = True
-            final_text = ""
-            for m in d.get("messages") or []:
-                if m.get("role") != "assistant":
-                    continue
-                if m.get("stopReason") == "error":
-                    state["error"] = (m.get("errorMessage") or "").strip() or "provider error"
+        kind = event.get("type")
+        if kind == "session":
+            result["saw_session"] = True
+            result["session_id"] = str(event.get("id", ""))
+            req.state.set("session", result["session_id"])   # saved the moment pi reports it
+        elif kind == "message_update":
+            delta = event.get("assistantMessageEvent") or {}
+            dtype = delta.get("type")
+            if dtype == "text_delta":
+                out.say(clean(delta.get("delta", "")))
+            elif dtype == "thinking_delta":
+                out.think(clean(delta.get("delta", "")))
+        elif kind == "message_end":
+            m = event.get("message") or {}
+            if m.get("role") == "assistant":
                 u = m.get("usage") or {}
-                for k in ("input", "output", "cacheRead", "cacheWrite"):
-                    try:
-                        state["usage"][k] += int(u.get(k) or 0)
-                    except (TypeError, ValueError):
-                        pass
-                final_text = "".join(c.get("text", "") for c in m.get("content") or []
-                                     if isinstance(c, dict) and c.get("type") == "text")
-            if not state["streamed"] and final_text.strip():
-                out.say(final_text)
-                state["streamed"] = True
-    return state
+                result["usage"]["input"] += int(u.get("input") or 0)
+                result["usage"]["output"] += int(u.get("output") or 0)
+                result["usage"]["cached"] += int(u.get("cacheRead") or 0)
+                result["usage"]["cache_write"] += int(u.get("cacheWrite") or 0)
+                if m.get("stopReason") == "error":
+                    result["error"] = clean(str(m.get("errorMessage") or "the provider returned an error"))
+                elif m.get("stopReason") == "length":
+                    result["incomplete"] = "max_output_tokens"
+        elif kind == "tool_execution_start":
+            pending[str(event.get("toolCallId"))] = (str(event.get("toolName", "")), event.get("args") or {})
+        elif kind == "tool_execution_end":
+            cid = str(event.get("toolCallId"))
+            name, args = pending.pop(cid, (str(event.get("toolName", "")), None))
+            if name:
+                emit_tool(name, args, extract_text((event.get("result") or {}).get("content")))
+        elif kind == "agent_end":
+            result["saw_agent_end"] = True
+
+    if proc is not None:
+        proc.wait()
+    result["signalled"] = signalled.is_set() or (proc is not None and proc.returncode is not None and proc.returncode < 0)
+    return result
 
 
-def main():
-    req, out = Request.load(), Emitter()
-    out.ignored([f for f in IGNORED if req.get(f) is not None])
-
-    provider = req.provider
-    if not provider or provider.api != "anthropic":
-        out.failed("server_error", "journalist-pi runs on the Anthropic API shape only")
-        return
-
-    write_models_json(provider.url, req.model or "deepseek-v4-pro")
-
-    names = req.place_inputs()
-    prompt = req.prompt
-    if not prompt:
-        out.failed("invalid_prompt", "the input is the assignment; nothing to report")
-        return
-
-    meta = req.get("metadata") or {}
-    desk = str(meta.get("desk") or os.environ.get("DESK") or "").strip() or "biofuels"
-    task = str(meta.get("task") or "").strip() or "briefing"
-    store = req.get("store")
-
-    session_id = req.state.get("session")
+def main() -> None:
     history = req.history()
+    saved = req.state.get("session")
+    names = req.place_inputs()
+    attached = f"\n\nAttached files: {', '.join(names)}" if names else ""
+    assignment = req.prompt.strip()
+    store = req.get("store")
+    ephemeral = store is False
 
-    head = "Desk: " + desk + "\nTask kind: " + task
-    if names:
-        head += "\nAttached files (in the workspace): " + ", ".join(names)
-    if store is False:
-        body, resume_session = prompt, None
-    else:
-        resume_session = find_session_file(session_id) if session_id else None
-        if resume_session:
-            body = prompt
-        elif history:
-            body = ("Earlier conversation (continued from another harness or session):\n\n"
-                    + req.transcript() + "\n\nNew assignment: " + prompt)
-        else:
-            body = prompt
+    def brief() -> str:
+        return f"Desk: {desk}\nTask kind: {task}\n\nAssignment: {assignment}{attached}".strip()
 
-    cmd = [PI, "--offline", "--mode", "json", "-p",
-           "--provider", "anthropic",
-           "--model", req.model or "deepseek-v4-pro",
-           "--api-key", provider.token]
-    if req.instructions:
-        cmd += ["--append-system-prompt", req.instructions]
+    base = [str(PI), "--mode", "json", "--provider", "anthropic", "--model", model,
+            "--tools", "read,bash,edit,write,grep,find,ls"]
+    if ephemeral:
+        base.append("--no-session")
     effort = req.reasoning_effort
     if effort in THINKING:
-        cmd += ["--thinking", THINKING[effort]]
-    if resume_session:
-        cmd += ["--session", resume_session]
-    elif store is False:
-        cmd += ["--no-session"]
-    cmd += [head + "\n\nAssignment: " + body]
+        base += ["--thinking", effort]
+    if req.instructions:
+        base += ["--append-system-prompt", req.instructions]
 
-    env = os.environ.copy()
-    env.update({"PI_SKIP_VERSION_CHECK": "1", "PI_OFFLINE": "1",
-                "MPLCONFIGDIR": str(req.workspace / ".mplconfig"), "DESK": desk})
-    venv_bin = os.path.join(HG_TOOLS, "venv", "bin")
-    if os.path.isdir(venv_bin):
-        env["PATH"] = venv_bin + os.pathsep + env.get("PATH", "")
-
-    out.log("pi run: model=%s desk=%s task=%s resume=%s" % (req.model, desk, task, bool(resume_session)))
-
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            stdin=subprocess.DEVNULL, env=env, cwd=str(req.workspace))
-    lines_q = queue.Queue()
-    stderr_lines = []
-
-    def _stdout_reader():
-        for raw in proc.stdout:
-            lines_q.put(raw.decode("utf-8", "replace"))
-        lines_q.put(None)
-
-    def _stderr_reader():
-        for raw in proc.stderr:
-            stderr_lines.append(raw.decode("utf-8", "replace"))
-
-    threading.Thread(target=_stdout_reader, daemon=True).start()
-    threading.Thread(target=_stderr_reader, daemon=True).start()
-
-    deadline = time.monotonic() + TURN_TIMEOUT
-    interrupted = {"value": False}
-
-    def _on_term(signum, frame):
-        interrupted["value"] = True
-        if proc.poll() is None:
-            proc.terminate()
-
-    old = signal.signal(signal.SIGTERM, _on_term)
-
-    def lines():
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                interrupted["value"] = True
-                if proc.poll() is None:
-                    proc.terminate()
-                return
-            try:
-                item = lines_q.get(timeout=min(remaining, 5.0))
-            except queue.Empty:
-                continue
-            if item is None:
-                return
-            yield item
-
-    try:
-        state = map_stream(lines(), out, save_session=lambda sid: req.state.set("session", sid))
-    finally:
-        signal.signal(signal.SIGTERM, old)
-        if proc.poll() is None:
-            proc.wait()
-
-    stderr = "\n".join(stderr_lines)
-    for raw in stderr.strip().splitlines():
-        out.log("pi stderr " + raw[:300])
-
-    if state["error"]:
-        out.failed(_error_code(state["error"]), state["error"][:500],
-                   metadata={"desk": desk, "task": task})
-    elif state["ended"]:
-        u = state["usage"]
-        out.done(input=u["input"] + u["cacheRead"] + u["cacheWrite"], output=u["output"],
-                 cached=u["cacheRead"], cache_write=u["cacheWrite"],
-                 metadata={"desk": desk, "task": task})
-    elif interrupted["value"]:
-        out.failed("interrupted", "pi was stopped before it finished the assignment")
+    result: dict
+    if saved and not ephemeral:
+        result = run_pi(base + ["--session", saved], (assignment + attached).strip() or brief())
+        if result["refused"]:   # pi found no such session: start fresh and replay the conversation from history
+            out.log("pi refused the saved session; starting fresh from the history")
+            transcript = clean(req.transcript())
+            prompt = brief()
+            if transcript:
+                prompt += "\n\nEarlier conversation (continue from here):\n" + transcript
+            result = run_pi(base, prompt, os.environ.get("JOURNALIST_PI_REPLAY_FALLBACK"))
     else:
-        code = "rate_limit_exceeded" if "429" in stderr else "server_error"
-        msg = (stderr.strip().splitlines() or ["pi exited without finishing"])[-1][:500]
-        out.failed(code, msg or "pi exited without finishing")
+        transcript = clean(req.transcript()) if history else ""
+        prompt = brief()
+        if transcript:
+            prompt += "\n\nEarlier conversation (continue from here):\n" + transcript
+        result = run_pi(base, prompt)
+
+    ignored = [f for f in ("tools", "max_tool_calls", "max_output_tokens", "temperature", "top_p")
+               if req.get(f) is not None]
+    if req.text_format:
+        ignored.append("text")
+    out.ignored(ignored)
+
+    usage = result["usage"]
+    # pi reports cacheRead separately from input; OpenAI counts cached tokens inside input, so add them.
+    kw = dict(input=usage["input"] + usage["cached"], output=usage["output"], cached=usage["cached"],
+              cache_write=usage["cache_write"])
+    meta = {"cli_session": result["session_id"]} if result["session_id"] else None
+    if result["error"]:
+        code, msg = classify(result["error"])
+        out.failed(code, msg, metadata=meta, **kw)
+    elif result["incomplete"]:
+        out.stopped(result["incomplete"], metadata=meta, **kw)
+    elif result["signalled"] or not result["saw_agent_end"]:
+        out.stopped("max_output_tokens", metadata=meta, **kw)
+    else:
+        out.done(metadata=meta, **kw)
 
 
 if __name__ == "__main__":

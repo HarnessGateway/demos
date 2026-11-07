@@ -1,11 +1,4 @@
 {
-  "defaultProvider": "anthropic",
-  "enableInstallTelemetry": false,
-  "warnings": {
-    "anthropicExtraUsage": false
-  },
-  "retry": {
-    "enabled": false
-  },
-  "extensions": ["extensions/journalist-guard.ts"]
+  "quietStartup": true,
+  "enableInstallTelemetry": false
 }

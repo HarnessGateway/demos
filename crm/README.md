@@ -1,35 +1,56 @@
-# CRM with a sales agent
+# Showroom CRM, with a sales agent in it
 
-[`demo.mp4`](demo.mp4) records the sales-codex package being built in the console and this app in use.
-
-A small CRM, the kind an account executive lives in: accounts with contacts, deals and notes. Beside every account sits
-a **sales agent**: the [`sales-codex`](../packages/sales-codex/) harness package on HarnessGateway, OpenAI's Codex CLI
-tailored to this job. The rep asks it for an account brief, an outreach draft, a call plan or next steps, or anything
-in plain language; it works in its own sandbox, researches on the public web, writes files into the account's folder
-and answers. **It never sends anything.** A rep reads the draft and approves it; only then does the CRM record it as
-sent (this demo's outbox stands in for a mail server) or as a note.
+A small business's CRM: a home-improvement showroom in Austin and its 75 customers, each with an address on the map,
+a pipeline stage, a deal value, a lead source, a follow-up date, notes and an activity log. Inside it sits a **sales
+agent**: the [`sales-codex`](../packages/sales-codex/) harness package on HarnessGateway, OpenAI's Codex CLI tailored
+to this job. Ask it anything about the customers ("Who should I call today?", "Draft follow-up texts for the five most
+overdue follow-ups", "Plan a route for home consults with the six closest leads") and it reads the whole CRM, does the
+arithmetic in its sandbox and answers. When the answer means reaching customers, it drafts the emails and texts, and
+the CRM puts them in the **Outbox**. Nothing leaves until a person presses Send.
 
 ```bash
-python3 server.py            # http://127.0.0.1:8900 ; HG_API, HG_KEY, HG_MODEL from ./.env
+python3 server.py            # http://127.0.0.1:8900 ; HG_API, HG_KEY, HG_MODEL from ./.env (scripts/setup.py)
 ```
 
-## What it shows
+The first start creates `crm.db` (SQLite) and fills it from `seed.json`: made-up people at real, geocoded Austin
+addresses, with their history moved so it reads as if it happened in the last eight months. Delete `crm.db` to start
+over.
+
+## How the agent is wired in
 
 | In the CRM | On the platform |
 |---|---|
-| Each account has its agent | one **session** per account: `previous_response_id` on every request, so the workspace (`/workspace/accounts/<slug>/`) and Codex's own memory carry from task to task |
-| A task runs while you keep working | a **background** turn; the server polls the response until it ends, then waits for the save and lists the account's folder with the Containers API |
-| The rep's name on every request | `user`: the console's Sessions and Usage pages show the app (the key, named `crm`) and the person |
-| Files the agent wrote, viewable in place | `GET /v1/containers/{id}/files/{file}/content`, relayed by the server so the browser never holds the key |
-| Approve, then it is sent | the human step is the app's, where it belongs; the agent only drafts |
+| ✨ Ask, with the question and a snapshot of the CRM | a **background** Responses request from the CRM's server with a run-only key; the snapshot goes with it as an `input_file` named `customers.json` (every customer, distance from the store, every activity) |
+| Follow-up questions in the same chat | `previous_response_id`: the same **session**, so the agent's scratch work and Codex's memory carry over; each question still carries a fresh snapshot |
+| The agent's steps while it works | the response's `shell_call` items, polled every few seconds |
+| Drafts land in the Outbox | the agent ends its answer with one fenced `crm-drafts` block of JSON (`contact_id`, `channel`, `subject`, `body`); the package's standing instructions define it, the CRM parses it |
+| Send | the CRM's own step: SMTP or Twilio when configured, otherwise the message is approved and logged on the customer |
+
+The agent never sees a provider key, a mail password or the database: it gets a snapshot and returns text.
+
+## Sending for real (optional)
+
+Add to `crm/.env`:
+
+```bash
+CRM_SMTP_HOST=smtp.gmail.com
+CRM_SMTP_PORT=587
+CRM_SMTP_USER=you@example.com
+CRM_SMTP_PASSWORD=an-app-password
+CRM_EMAIL_FROM=Showroom <you@example.com>
+CRM_TWILIO_SID=AC...
+CRM_TWILIO_TOKEN=...
+CRM_TWILIO_FROM=+15125550100
+CRM_TEST_MODE=1                      # 1: every message goes to the test address below, not the customer
+CRM_TEST_EMAIL=you@example.com
+CRM_TEST_PHONE=+15125550100
+```
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `server.py` | the CRM: accounts and notes in `data.json`, the tasks it sends the agent, the approval step |
-| `index.html` | the page: accounts, Overview, Agent (tasks, replies, files, approve), Notes & outbox |
-| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a run-only key labelled `crm`), `HG_MODEL` (`sales-codex/<provider>/<model>`) |
-
-The three sample accounts are fictional. The agent's web research is real: the package allows the public web and
-nothing private.
+| `server.py` | the CRM: SQLite, geocoding (US Census, then OpenStreetMap), distances, the snapshot, the agent, the Outbox |
+| `index.html` | the page: pipeline, list and map, a customer drawer with activity, the agent, the Outbox, settings |
+| `seed.json` | the 75 demo customers and their 170 activities, with dates relative to the day the database is made |
+| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a run-only key labelled `crm`), `HG_MODEL` |

@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-# Installs OpenAI Codex CLI, pinned to the manifest version, into $HG_TOOLS.
-set -euo pipefail
-
-VERSION="${HG_PACKAGE_VERSION%-*}"
-npm install -g --prefix "$HG_TOOLS" "@openai/codex@${VERSION}"
-echo "installed: $("$HG_TOOLS/bin/codex" --version 2>&1)"

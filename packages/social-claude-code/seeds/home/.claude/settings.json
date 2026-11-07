@@ -2,40 +2,37 @@
   "permissions": {
     "deny": [
       "Bash(git push:*)",
-      "Bash(git remote:*)",
-      "Bash(git fetch:*)",
       "Bash(git pull:*)",
+      "Bash(git fetch:*)",
+      "Bash(git remote:*)",
       "Bash(git clone:*)",
-      "Bash(npm:*)",
-      "Bash(npx:*)",
-      "Bash(pip:*)",
-      "Bash(pip3:*)",
+      "Bash(npm install:*)",
+      "Bash(npm i:*)",
+      "Bash(npm ci:*)",
+      "Bash(npm add:*)",
+      "Bash(yarn add:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
       "Bash(apt:*)",
       "Bash(apt-get:*)",
+      "Bash(snap:*)",
       "Bash(yum:*)",
       "Bash(dnf:*)",
-      "Bash(cargo:*)",
-      "Bash(curl:*)",
-      "Bash(wget:*)",
-      "Write(~/.claude/**)",
-      "Edit(~/.claude/**)",
-      "Write(//etc/**)",
-      "Write(//tmp/**)",
-      "Write(//home/**)",
-      "Write(//root/**)",
-      "Write(//var/**)",
-      "Read(~/.claude.json)"
+      "Bash(cargo install:*)",
+      "Bash(go install:*)",
+      "Bash(gem install:*)"
     ]
   },
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
-        "hooks": [{"type": "command", "command": "python3 $HOME/.claude/hooks/pre-tool-use.py"}]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit|WebFetch",
-        "hooks": [{"type": "command", "command": "python3 $HOME/.claude/hooks/pre-tool-use.py"}]
+        "matcher": "Bash|Write|Edit|MultiEdit|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/guard.py\""
+          }
+        ]
       }
     ]
   }

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
+# Install the pi coding agent CLI (pinned) and the chart toolchain (pandas + matplotlib) into $HG_TOOLS.
 set -euo pipefail
 
-VER="${HG_PACKAGE_VERSION%-*}"
-mkdir -p "$HG_TOOLS"
+VERSION="${HG_PACKAGE_VERSION%-*}"     # e.g. 0.73.1 from "0.73.1-1"
+TOOLS="${HG_TOOLS:?}"
 
-if [ ! -x "$HG_TOOLS/node_modules/.bin/pi" ]; then
-  npm install --no-audit --no-fund --prefix "$HG_TOOLS" "@mariozechner/pi-coding-agent@$VER"
-fi
+# pi: the vendor's documented install, pinned. The bin shim lands in $TOOLS/bin/pi.
+npm install -g --prefix "$TOOLS" --no-audit --no-fund --loglevel=error \
+  "@mariozechner/pi-coding-agent@${VERSION}"
 
-if [ ! -x "$HG_TOOLS/venv/bin/python3" ]; then
-  python3 -m venv "$HG_TOOLS/venv"
-  "$HG_TOOLS/venv/bin/pip" install --no-cache-dir --quiet matplotlib pandas
-fi
+# pandas + matplotlib for the desk charts, in a venv so the agent's `python3` finds them at run time.
+python3 -m venv "$TOOLS/venv"
+"$TOOLS/venv/bin/pip" install --no-cache-dir --disable-pip-version-check \
+  "pandas==3.1.1" "matplotlib==3.11.2"
 
-PI_VERSION="$("$HG_TOOLS/node_modules/.bin/pi" --version 2>&1 | tail -1)"
-CHARTING="$("$HG_TOOLS/venv/bin/python3" -c 'import matplotlib, pandas; print("matplotlib", matplotlib.__version__, "pandas", pandas.__version__)')"
-echo "installed: pi $PI_VERSION; $CHARTING"
+echo "installed: pi $("$TOOLS/bin/pi" --version)"
+"$TOOLS/venv/bin/python" -c 'import pandas, matplotlib; print(f"installed: pandas {pandas.__version__}, matplotlib {matplotlib.__version__}")'

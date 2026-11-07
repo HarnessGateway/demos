@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""Fake codex for the package tests: replays a recorded JSONL fixture, records its argv and
+stdin prompt, and can simulate a hang (SIGTERM test) or a lost thread (resume fallback test)."""
+import json
+import os
+import sys
+import time
+
+stdin_text = sys.stdin.read()
+
+record = os.environ.get("FAKE_CODEX_RECORD")
+if record:
+    with open(record, "a") as f:
+        f.write(json.dumps({"argv": sys.argv[1:], "stdin": stdin_text}) + "\n")
+
+if os.environ.get("FAKE_CODEX_HANG"):
+    print(json.dumps({"type": "thread.started", "thread_id": "sess-hang-0001"}), flush=True)
+    print(json.dumps({"type": "turn.started"}), flush=True)
+    print(json.dumps({"type": "item.completed",
+                      "item": {"id": "i1", "type": "agent_message", "text": "partial answer"}}), flush=True)
+    time.sleep(300)
+    sys.exit(0)
+
+if os.environ.get("FAKE_CODEX_RESUME_FAIL") and "resume" in sys.argv:
+    sys.stderr.write("Error: thread/resume: no rollout found for thread id (code -32600)\n")
+    sys.exit(1)
+
+fixture = os.environ.get("FAKE_CODEX_FIXTURE")
+if fixture:
+    with open(fixture) as f:
+        sys.stdout.write(f.read())
+        sys.stdout.flush()
+else:
+    for ev in [
+        {"type": "thread.started", "thread_id": "sess-default-0001"},
+        {"type": "turn.started"},
+        {"type": "item.completed", "item": {"id": "i1", "type": "agent_message", "text": "hi"}},
+        {"type": "turn.completed", "usage": {"input_tokens": 1, "output_tokens": 1,
+                                             "cached_input_tokens": 0, "cache_write_input_tokens": 0,
+                                             "reasoning_output_tokens": 0}},
+    ]:
+        print(json.dumps(ev), flush=True)

@@ -1,361 +1,302 @@
 #!/usr/bin/env python3
-"""sales-codex harness, one turn: runs `codex exec --json` headless against the turn's provider and
-maps its JSONL event stream to Responses events.
+"""sales-codex run: one turn of the Showroom's CRM sales agent on Codex CLI.
 
-The CLI is OpenAI's Codex (0.167.0), reached through the platform's provider door. Codex speaks
-the OpenAI Responses API, so the provider block uses wire_api = "responses" and points at
-HG_PROVIDER_URL/v1; the API key comes from the HG_PROVIDER_TOKEN environment variable via
-env_key, so no key is ever written to a file.
-
-The agent is an account executive's sales agent. `write_agents` lays its standing instructions
-(~/.codex/AGENTS.md) with the turn's SALES_PLAYBOOK and REGION settings, and the config carries a
-PreToolUse hook (hooks/deny.py) that hard-blocks the operations this agent must never perform
-(no git remotes, no sending data out, no installing software, no destructive commands, no writes
-outside the workspace). The hook's JSON decisions bind because the run uses
---dangerously-bypass-hook-trust.
-
-Continuity has two paths, as every harness must:
-  1. Codex's own session: the thread id is read from the first `thread.started` event and saved
-     to req.state the moment it appears; the next turn resumes it with `codex exec resume <id>`.
-  2. The history: when there is no saved id (or the CLI refuses it), a fresh `codex exec` is
-     started with req.transcript() prepended to the prompt.
-
-Commands run with `--dangerously-bypass-approvals-and-sandbox`: Codex's own sandbox (bubblewrap)
-cannot create namespaces under the platform's gVisor sandbox, and this flag is exactly Codex's
-documented mode for externally-sandboxed environments; approval_policy = "never" is also set in
-the config for the interactive path.
+Reads the request, (re)writes Codex's config and standing files each turn, runs
+`codex exec` (or `codex exec resume`) non-interactively, and maps its JSONL event
+stream onto Responses events.
 """
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
 import threading
-import time
 from pathlib import Path
 
 from hgkit import Emitter, Request
 
-CODE = os.path.join(os.environ.get("HG_TOOLS", ""), "bin", "codex")
-HOME = Path(os.environ.get("HOME", "/home/hg"))
-CODEX_HOME = HOME / ".codex"
-PKG = os.environ.get("HG_PACKAGE_DIR", "")
-CONFIG_SRC = os.path.join(PKG, "seeds", "home", ".codex", "config.toml")
-AGENTS_SRC = os.path.join(PKG, "seeds", "home", ".codex", "AGENTS.md")
-HOOK_PATH = os.path.join(PKG, "hooks", "deny.py")
-TIMEOUT_S = float(os.environ.get("HG_CODEX_TIMEOUT_S", "870"))
-MAX_DIFF_BYTES = 256 * 1024
+PROVIDER_NAME = "deepseek-openai"
+KEY_ENV = "HG_PROVIDER_TOKEN"
+CODEX_HOME = Path(os.environ.get("HOME", "/root")) / ".codex"
+PKG = Path(os.environ.get("HG_PACKAGE_DIR", ""))
+DEFAULT_MODEL = "deepseek-v4-pro"
 
-DEFAULT_PLAYBOOK = ("We sell a B2B software platform to mid-market operations teams. Our value proposition: "
-                    "fewer manual steps, cleaner handoffs and one place to see the work. Tone: direct, concrete, "
-                    "respectful of the reader's time; no hype, no hard close. Every account gets a brief on what "
-                    "they do and where our platform helps, an email that names a specific problem, and a call plan "
-                    "that leads with questions.")
+DEFAULT_PROFILE = ("A family-owned home-improvement showroom selling kitchen and bath remodels, flooring, "
+                   "cabinets and countertops. Warm, plain-spoken, no pressure.")
+DEFAULT_SIGNATURE = "— The Showroom team"
 
-FALLBACK_CONFIG = """\
-model = "__MODEL__"
-model_provider = "deepseek-openai"
+# Request fields this CLI cannot honour (named in the terminal event's metadata).
+IGNORED = ("reasoning", "text", "tools", "max_tool_calls", "max_output_tokens", "temperature", "top_p")
+
+
+def config_toml(base_url: str) -> str:
+    url = base_url.rstrip("/")
+    return f'''model_provider = "{PROVIDER_NAME}"
 approval_policy = "never"
 sandbox_mode = "workspace-write"
 check_for_update_on_startup = false
+
+[model_providers.{PROVIDER_NAME}]
+name = "{PROVIDER_NAME}"
+base_url = "{url}/v1"
+env_key = "{KEY_ENV}"
+wire_api = "responses"
+
+[sandbox_workspace_write]
+network_access = true
 
 [analytics]
 enabled = false
 
 [features]
 plugins = false
-
-[model_providers.deepseek-openai]
-name = "OpenAI-compatible provider"
-base_url = "__BASE_URL__"
-env_key = "HG_PROVIDER_TOKEN"
-wire_api = "responses"
-requires_openai_auth = false
-"""
-
-FLAGS = ["--json", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust",
-         "--skip-git-repo-check"]
-
-req, out = Request.load(), Emitter()
-
-FINAL: dict = {}          # the terminal event to emit after the workspace diff: {"done": usage} or {"failed": msg}
-REPORTED: set = set()     # workspace paths already reported via codex file_change items this turn
+plugin_discovery_prefetch = false
+remote_plugin = false
+in_app_updates = false
+'''
 
 
-def write_config() -> None:
-    """Write ~/.codex/config.toml from the package template with this turn's base URL and model."""
-    try:
-        src = Path(CONFIG_SRC).read_text() if Path(CONFIG_SRC).is_file() else FALLBACK_CONFIG
-    except OSError:
-        src = FALLBACK_CONFIG
-    provider = req.provider
-    base = (provider.url if provider else "").rstrip("/") + "/v1"
-    model = req.model or "deepseek-v4-pro"
+def assert_standing_files(out: Emitter) -> None:
+    """(Re)write the agent's standing files from the package's seeds so package upgrades take
+    effect even though .codex is persisted across sandboxes."""
     CODEX_HOME.mkdir(parents=True, exist_ok=True)
-    text = src.replace("__BASE_URL__", base).replace("__MODEL__", model).replace("__HOOK_PATH__", HOOK_PATH)
-    (CODEX_HOME / "config.toml").write_text(text)
+    rules = CODEX_HOME / "rules"
+    rules.mkdir(exist_ok=True)
+    seeds = PKG / "seeds" / "home" / ".codex"
+    for src, dst in ((seeds / "AGENTS.md", CODEX_HOME / "AGENTS.md"),
+                     (seeds / "rules" / "default.rules", rules / "default.rules")):
+        if src.is_file():
+            dst.write_text(src.read_text())
+        else:
+            out.log(f"missing seed file {src}; leaving {dst} as is")
 
 
-def write_agents() -> None:
-    """Write ~/.codex/AGENTS.md from the package template with this turn's settings (SALES_PLAYBOOK, REGION)."""
-    try:
-        src = Path(AGENTS_SRC).read_text() if Path(AGENTS_SRC).is_file() else ""
-    except OSError:
-        src = ""
-    if not src:
-        return
-    playbook = os.environ.get("SALES_PLAYBOOK", DEFAULT_PLAYBOOK).strip() or DEFAULT_PLAYBOOK
-    region = os.environ.get("REGION", "US").strip() or "US"
-    CODEX_HOME.mkdir(parents=True, exist_ok=True)
-    (CODEX_HOME / "AGENTS.md").write_text(src.replace("__SALES_PLAYBOOK__", playbook).replace("__REGION__", region))
+def codex_bin() -> str:
+    tools = os.environ.get("HG_TOOLS")
+    if tools:
+        p = Path(tools) / "bin" / "codex"
+        if p.is_file():
+            return str(p)
+    return shutil.which("codex") or "codex"
 
 
-def _rel(path: str) -> str:
-    """A codex-reported path, as a workspace-relative POSIX path for dedupe against the diff."""
-    p = Path(path)
-    if p.is_absolute():
+def build_prompt(req: Request, placed: list[str], with_history: bool) -> str:
+    profile = os.environ.get("STORE_PROFILE") or DEFAULT_PROFILE
+    signature = os.environ.get("SIGNATURE") or DEFAULT_SIGNATURE
+    parts = [f"Store profile: {profile}", f"Signature for messages: {signature}"]
+    if placed:
+        parts.append("Input files in the working directory: " + ", ".join(placed))
+    parts.append(req.prompt)
+    if req.instructions:
+        parts.append(f"<instructions>\n{req.instructions}\n</instructions>")
+    if with_history:
+        hist = req.transcript(limit=60_000)
+        if hist:
+            parts.append(f"<conversation-so-far>\n{hist}\n</conversation-so-far>")
+    return "\n\n".join(p for p in parts if p.strip())
+
+
+class Mapper:
+    """Codex's JSONL event stream -> hgkit Responses events."""
+
+    def __init__(self, out: Emitter, state):
+        self.out = out
+        self.state = state
+        self.runs: dict[str, object] = {}
+        self.usage = None
+        self.failure = None  # (code, message) from codex's turn.failed
+        self.completed = False
+        self.lines = 0       # JSONL events seen (0 means the CLI never started a turn)
+
+    def handle(self, raw: str) -> None:
         try:
-            return p.relative_to(req.workspace).as_posix()
+            ev = json.loads(raw)
         except ValueError:
-            return path
-    return p.as_posix().removeprefix("./")
-
-
-def workspace_snapshot() -> dict:
-    """Files currently in the workspace: relpath -> ('b', bytes) or ('s', size, mtime_ns)."""
-    snap: dict = {}
-    root = req.workspace
-    if not root.is_dir():
-        return snap
-    for p in root.rglob("*"):
-        try:
-            if not p.is_file():
-                continue
-            rel = p.relative_to(root).as_posix()
-            size = p.stat().st_size
-            if size <= MAX_DIFF_BYTES:
-                snap[rel] = ("b", p.read_bytes())
+            self.out.log(raw.strip())
+            return
+        self.lines += 1
+        t = ev.get("type")
+        item = ev.get("item") if isinstance(ev.get("item"), dict) else {}
+        if t == "thread.started":
+            tid = str(ev.get("thread_id") or "")
+            if tid:
+                self.state.set("session", tid)
+                self.out.log(f"codex session: {tid}")
+        elif t == "item.started":
+            if item.get("type") == "command_execution":
+                self.runs[item.get("id")] = self.out.ran(item.get("command") or "")
+        elif t == "item.completed":
+            self._completed(item)
+        elif t == "turn.completed":
+            u = ev.get("usage") or {}
+            self.usage = Emitter.usage(
+                input=int(u.get("input_tokens") or 0),
+                output=int(u.get("output_tokens") or 0),
+                cached=int(u.get("cached_input_tokens") or 0),
+                cache_write=int(u.get("cache_write_input_tokens") or 0),
+                reasoning=int(u.get("reasoning_output_tokens") or 0),
+            )
+            self.completed = True
+        elif t == "turn.failed":
+            err = ev.get("error") or {}
+            msg = str(err.get("message") or "the model turn failed")
+            low = msg.lower()
+            if "rate limit" in low or "too many" in low or "429" in low or "overloaded" in low:
+                code = "rate_limit_exceeded"
+            elif "api key" in low or "auth" in low or "401" in low or "403" in low:
+                code = "invalid_api_key"
             else:
-                snap[rel] = ("s", size, p.stat().st_mtime_ns)
-        except OSError:
-            continue
-    return snap
+                code = "server_error"
+            self.failure = (code, msg)
+        elif t == "error":
+            self.out.log("codex: " + str(ev.get("message") or ""))
+        elif t != "turn.started":
+            self.out.log(raw.strip())
 
-
-def emit_workspace_diff(before: dict) -> None:
-    """Report files the agent created, changed or deleted during the turn as apply_patch items."""
-    root = req.workspace
-    after: dict = {}
-    if root.is_dir():
-        for p in root.rglob("*"):
-            try:
-                if not p.is_file():
-                    continue
-                rel = p.relative_to(root).as_posix()
-                size = p.stat().st_size
-                if size <= MAX_DIFF_BYTES:
-                    after[rel] = ("b", p.read_bytes())
-                else:
-                    after[rel] = ("s", size, p.stat().st_mtime_ns)
-            except OSError:
-                continue
-    for rel in sorted(set(after) | set(before)):
-        b, a = before.get(rel), after.get(rel)
-        if a == b or rel in REPORTED:
-            continue
-        if b is None:
-            content = a[1].decode("utf-8", "replace") if a[0] == "b" else ""
-            out.wrote(rel, content)
-        elif a is None:
-            out.deleted(rel)
-        else:
-            old = b[1].decode("utf-8", "replace") if b[0] == "b" else ""
-            new = a[1].decode("utf-8", "replace") if a[0] == "b" else ""
-            out.edited(rel, old=old, new=new)
-
-
-def map_item(item: dict) -> None:
-    kind = item.get("type")
-    if kind == "agent_message":
-        out.say(item.get("text", ""))
-    elif kind == "reasoning":
-        out.think(item.get("text", ""))
-    elif kind == "command_execution":
-        cmd = item.get("command", "")
-        status = item.get("status")
-        if status == "declined":
-            out.log("codex declined command: " + cmd)
-        else:
+    def _completed(self, item: dict) -> None:
+        it = item.get("type")
+        if it == "agent_message":
+            self.out.say(item.get("text") or "")
+        elif it == "reasoning":
+            self.out.think(item.get("text") or "")
+        elif it == "command_execution":
+            handle = self.runs.pop(item.get("id"), None)
+            cmd = item.get("command") or ""
             exit_code = item.get("exit_code")
-            exit_code = exit_code if isinstance(exit_code, int) else (1 if status == "failed" else 0)
-            out.ran(cmd, stdout=item.get("aggregated_output", ""), exit=exit_code)
-    elif kind == "file_change":
-        for change in item.get("changes") or []:
-            path, k = change.get("path", ""), change.get("kind")
-            REPORTED.add(_rel(path))
-            if k == "add":
-                out.wrote(path)
-            elif k == "delete":
-                out.deleted(path)
+            exit_val = exit_code if isinstance(exit_code, int) else (0 if item.get("status") == "completed" else 1)
+            stdout = item.get("aggregated_output") or ""
+            if handle is not None:
+                handle.done(stdout=stdout, exit=exit_val)
             else:
-                out.edited(path, diff="")
-    elif kind == "mcp_call":
-        args = item.get("arguments", {})
-        call = out.called(item.get("server", ""), item.get("tool", ""), args)
-        if item.get("status") == "failed":
-            err = (item.get("error") or {}).get("message", "mcp tool failed")
-            call.failed(err)
+                self.out.ran(cmd, stdout=stdout, exit=exit_val)
+        elif it == "error":
+            self.out.log("codex: " + str(item.get("message") or ""))
         else:
-            call.done(json.dumps(item.get("result") or {}))
-    elif kind == "web_search":
-        out.item({"type": "web_search_call", "id": item.get("id", ""), "status": "completed",
-                  "action": {"type": "search", "query": item.get("query", "")}})
-    elif kind == "error":
-        out.log("codex item error: " + item.get("message", ""))
-    else:
-        out.log("codex item " + json.dumps(item, ensure_ascii=False)[:400])
+            self.out.log(f"codex item {it}")
 
 
-def handle_line(line: str) -> str:
-    line = line.strip()
-    if not line:
-        return ""
-    out.log("codex " + line)
-    try:
-        event = json.loads(line)
-    except ValueError:
-        out.log("codex (non-JSON) " + line)
-        return ""
-    t = event.get("type")
-    if t == "thread.started":
-        req.state.set("session", event.get("thread_id", ""))
-    elif t == "item.completed":
-        map_item(event.get("item") or {})
-    elif t == "turn.completed":
-        FINAL["done"] = event.get("usage") or {}
-    elif t == "turn.failed":
-        message = (event.get("error") or {}).get("message") or json.dumps(event)
-        FINAL["failed"] = message
-    elif t == "error":
-        out.log("codex error: " + event.get("message", ""))
-    # thread.started/turn.started/item.started/item.updated and anything else are covered by the raw log line.
-    return t
-
-
-def invoke(argv: list, prompt: str) -> dict:
-    """Run codex once. Returns {'exit': int|None, 'saw_turn': bool, 'timed_out': bool}."""
-    FINAL.clear()
-    env = dict(os.environ)
+def run_turn(cmd: list[str], prompt: str, mapper: Mapper) -> tuple[int, str, bool]:
+    """Run codex once, mapping its stdout lines; returns (exit_code, stderr tail, killed)."""
+    env = os.environ.copy()
     env["CODEX_HOME"] = str(CODEX_HOME)
-    cmd = [CODE, "exec", *FLAGS, *argv]
-    out.log("codex cmd: " + " ".join(cmd))
-    proc = subprocess.Popen(
-        cmd, cwd=str(req.workspace), env=env,
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, start_new_session=True,
-    )
+    workspace = os.environ.get("HG_WORKSPACE", "/workspace")
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, cwd=workspace, env=env, start_new_session=True)
+    holder = {"killed": False}
+    stderr_lines: list[str] = []
 
-    state = {"saw_turn": False, "timed_out": False}
-
-    def drain():
+    def drain() -> None:
+        assert proc.stderr is not None
         for line in proc.stderr:
-            line = line.rstrip("\n")
-            if line:
-                out.log("codex stderr: " + line)
+            stderr_lines.append(line.rstrip("\n"))
+            if len(stderr_lines) > 200:
+                del stderr_lines[0]
 
-    stderr_thread = threading.Thread(target=drain, daemon=True)
-    stderr_thread.start()
+    threading.Thread(target=drain, daemon=True).start()
 
-    def kill():
+    def on_sigterm(signum, frame):  # noqa: ARG001
+        holder["killed"] = True
         try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        except OSError:
+            proc.terminate()
 
-    timer = threading.Timer(TIMEOUT_S, lambda: (state.__setitem__("timed_out", True), kill()))
-    timer.daemon = True
-    timer.start()
-
-    def on_term(signum, frame):
-        kill()
-        if not out.ended:
-            try:
-                out.failed("turn_stopped", "the turn was stopped before completion")
-            except Exception:
-                pass
-        sys.exit(0)
-
-    old_term = signal.signal(signal.SIGTERM, on_term)
+    old = signal.signal(signal.SIGTERM, on_sigterm)
     try:
         try:
             proc.stdin.write(prompt)
+            proc.stdin.close()
         except (BrokenPipeError, OSError):
             pass
-        try:
-            proc.stdin.close()
-        except OSError:
-            pass
+        assert proc.stdout is not None
         for line in proc.stdout:
-            if handle_line(line) == "thread.started":
-                state["saw_turn"] = True
-            if out.ended:
-                break
+            mapper.handle(line)
         proc.wait()
     finally:
-        signal.signal(signal.SIGTERM, old_term)
-        timer.cancel()
-        stderr_thread.join(timeout=5)
-
-    state["exit"] = proc.returncode
-    return state
+        signal.signal(signal.SIGTERM, old)
+    return proc.returncode, "\n".join(stderr_lines[-40:]), holder["killed"]
 
 
-def prompt_text(transcript: str, names: list) -> str:
-    parts = []
-    if req.instructions:
-        parts.append("Instructions:\n" + req.instructions)
-    if names:
-        parts.append("Attached files (in the workspace): " + ", ".join(names))
-    if transcript:
-        parts.append("Earlier in this conversation:\n" + transcript)
-    parts.append(req.prompt)
-    return "\n\n".join(p for p in parts if p)
+def finish(out: Emitter, mapper: Mapper, rc: int, err: str, meta: dict[str, str], killed: bool) -> None:
+    if err:
+        out.log("codex stderr: " + err.replace("\n", " | ")[-2000:])
+    if mapper.completed:
+        out.done(usage=mapper.usage, metadata=meta)
+    elif mapper.failure is not None:
+        code, msg = mapper.failure
+        out.failed(code, msg[:4000], metadata=meta)
+    elif killed:
+        out.failed("cancelled", "the turn was interrupted", metadata=meta)
+    elif rc != 0:
+        out.failed("cli_error", f"codex exited {rc}: {err[-400:] or 'no output'}", metadata=meta)
+    else:
+        out.failed("cli_error", "codex ended without a completed turn", metadata=meta)
+
+
+def run(out: Emitter) -> None:
+    req = Request.load()
+    out.ignored([f for f in IGNORED if req.get(f) not in (None, "", [], {})])
+
+    if not req.prompt:
+        out.failed("invalid_prompt", "the input text is the CRM briefing and question")
+        return
+
+    provider = req.provider
+    if provider is None or not provider.url:
+        out.failed("invalid_prompt", "no provider is configured for this turn")
+        return
+
+    assert_standing_files(out)
+    CODEX_HOME.joinpath("config.toml").write_text(config_toml(provider.url))
+
+    try:
+        placed = req.place_inputs()
+    except OSError as e:
+        out.failed("invalid_input_file", f"an input file could not be saved into the workspace: {e}")
+        return
+
+    model = req.model or DEFAULT_MODEL
+    bin_ = codex_bin()
+    meta = {"codex_version": req.cli_version}
+    flags = ["--json", "--skip-git-repo-check", "-m", model]
+    if req.get("store") is False:
+        flags.append("--ephemeral")
+    workspace = os.environ.get("HG_WORKSPACE", "/workspace")
+    Path(workspace).mkdir(parents=True, exist_ok=True)
+
+    session_id = req.state.get("session")
+    if session_id:
+        mapper = Mapper(out, req.state)
+        rc, err, killed = run_turn([bin_, "exec", "resume", session_id, "-", *flags],
+                                   build_prompt(req, placed, with_history=False), mapper)
+        if rc != 0 and mapper.lines == 0 and "no rollout found" in err:
+            out.log(f"the codex session {session_id} is gone; starting a new one from the session's history")
+            req.state.set("session", "")
+            session_id = ""
+        else:
+            finish(out, mapper, rc, err, meta, killed)
+            return
+
+    # Fresh session: the first turn, a fork from another harness, or a lost thread.
+    mapper = Mapper(out, req.state)
+    rc, err, killed = run_turn([bin_, "exec", "-C", workspace, *flags, "-"],
+                               build_prompt(req, placed, with_history=True), mapper)
+    finish(out, mapper, rc, err, meta, killed)
 
 
 def main() -> None:
-    REPORTED.clear()
-    write_config()
-    write_agents()
-    names = req.place_inputs()
-    before = workspace_snapshot()
-    session_id = req.state.get("session")
-    transcript = req.transcript() if req.history() else ""
-
-    result = None
-    if session_id:
-        result = invoke(["resume", session_id, "-"], prompt_text("", names))
-        if not result["saw_turn"] and not result["timed_out"] and result["exit"] not in (0,):
-            out.log("codex refused saved session %s; restarting from history" % session_id)
-            result = None
-
-    if result is None:
-        result = invoke(["-"], prompt_text(transcript, names))
-
-    emit_workspace_diff(before)
-
-    if FINAL.get("failed"):
-        out.failed("server_error", "codex turn failed: " + FINAL["failed"])
-    elif result["timed_out"]:
-        out.failed("server_error", "codex did not finish within %ds; the provider may be unreachable" % int(TIMEOUT_S))
-    elif result["exit"] not in (0,):
-        out.failed("server_error", "codex exited %s" % result["exit"])
-    elif "done" in FINAL:
-        u = FINAL["done"]
-        out.done(input=u.get("input_tokens", 0), output=u.get("output_tokens", 0),
-                 cached=u.get("cached_input_tokens", 0), cache_write=u.get("cache_write_input_tokens", 0),
-                 reasoning=u.get("reasoning_output_tokens", 0))
-    else:
-        out.done()
+    out = Emitter()
+    try:
+        run(out)
+    except FileNotFoundError as e:
+        if not out.ended:
+            out.failed("cli_error", f"cannot start codex: {e}")
+    except Exception as e:  # a package bug must not lose the turn silently
+        import traceback
+        traceback.print_exc()
+        if not out.ended:
+            out.failed("harness_error", f"the sales-codex package failed: {type(e).__name__}: {e}")
 
 
 if __name__ == "__main__":

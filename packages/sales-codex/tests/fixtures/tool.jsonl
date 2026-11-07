@@ -1,7 +1,6 @@
-{"type":"thread.started","thread_id":"01a1afab-0072-7172-b3ed-de0462f951ec"}
-{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model metadata for `deepseek-v4-pro` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."}}
+{"type":"thread.started","thread_id":"sess-tool-0001"}
 {"type":"turn.started"}
-{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/bash -c \"printf 'hello-from-tool' && pwd\"","aggregated_output":"","exit_code":null,"status":"in_progress"}}
-{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/bash -c \"printf 'hello-from-tool' && pwd\"","aggregated_output":"hello-from-tool/tmp/workdir\n","exit_code":0,"status":"completed"}}
-{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Mock reply 2: done."}}
-{"type":"turn.completed","usage":{"input_tokens":14,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":6,"reasoning_output_tokens":0}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/bash -lc \"python3 -c 'import json; d=json.load(open('customers.json')); print(len(d['customers']))'\"","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/bash -lc \"python3 -c 'import json; d=json.load(open('customers.json')); print(len(d['customers']))'\"","aggregated_output":"42 customers\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"42 customers in the list."}}
+{"type":"turn.completed","usage":{"input_tokens":220,"cached_input_tokens":10,"cache_write_input_tokens":0,"output_tokens":70,"reasoning_output_tokens":0}}

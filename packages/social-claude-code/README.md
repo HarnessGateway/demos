@@ -1,126 +1,183 @@
 # social-claude-code
 
-A harness package for a **social media manager agent** on Claude Code (`@anthropic-ai/claude-code`, pinned to
-`2.1.318`). Given a campaign — a URL to read or pasted text, the goal, the audience, the brand's voice, and the
-platforms — the agent reads the source fully, then writes engagement drafts in each platform's idiom and a
-cross-posting plan. It never posts: a person approves each draft in the app, which schedules and publishes it.
+A **social media manager agent** on Anthropic's Claude Code CLI (`@anthropic-ai/claude-code`), pinned to **2.1.319**.
+Given a campaign, it reads the source and writes engagement drafts, a cross-posting plan, and a strategy — and it
+**never posts anything**. A person approves each draft in the social media management app, which does the scheduling
+and posting.
 
-This is a tailored copy of the `claude-code` package, delivered beside it. It adds the agent's standing instructions,
-the platform reference, a permission deny list, a PreToolUse fence hook, operator settings, and a narrowed purpose.
+The package is one harness: the Claude Code CLI headless in the sandbox, plus the organization's layer — the
+standing instructions, the permission deny list, the PreToolUse hook, the platform reference, and the operator
+settings.
 
 ## Purpose
 
-One session per campaign. The request names a campaign (a URL to read, or pasted text), its goal, audience, brand
-voice, and platforms; `metadata.campaign` is the slug and `metadata.platforms` the platform list. The agent:
+A campaign arrives in the request as either a **URL to read** (the canonical source) or **pasted text**, plus the
+**goal**, the **audience**, the **brand voice** (when `BRAND_VOICE` is not set), and the **platforms**. The agent:
 
-1. Reads the source fully — WebFetch the URL and the pages it links to that matter — before drafting.
-2. Writes drafts in each platform's idiom and limits: **X** (280 characters; a thread when warranted), **LinkedIn**
-   (1,300 max, the first two lines carry it), **Instagram** (hook, line breaks, hashtags at the end, plus alt text for
-   the image it suggests), **Threads**, **Bluesky** (300), **Mastodon** (500), **Facebook**.
-3. Plans cross-posting: which platform leads, which follow and re-share over the first days; UTM backlinks
-   `?utm_source=<platform>&utm_medium=social&utm_campaign=<slug>`; cross-links between posts.
-4. Writes the machine-readable plan to `/workspace/campaigns/<slug>/plan.json`
-   (`{slug, canonical_url, posts: [{platform, when, text, hashtags, link, alt_text, cross_links, notes}]}`), one
-   `<platform>.md` per platform, and `strategy.md`.
-5. Answers in prose with a summary; `plan.json` is what the app parses.
+1. reads the source fully before writing (WebFetch, falling back to `curl -sL`);
+2. writes one engagement draft per platform in that platform's own idiom and limits — X (280 chars, thread when
+   warranted), LinkedIn (≤1300 chars, first two lines carry it), Instagram (caption with hook + line breaks +
+   hashtags at the end, plus alt text for a suggested image), Threads, Bluesky (300), Mastodon (500), Facebook;
+3. plans cross-posting — sequence/timing over the first days, which platform leads/follows/re-shares, a backlink on
+   every post to the canonical URL with `utm_source=<platform>&utm_medium=social&utm_campaign=<slug>`, and
+   cross-links between posts;
+4. writes `/workspace/campaigns/<slug>/plan.json`, one `<platform>.md` per platform, and `strategy.md`;
+5. answers in prose and **ends every answer with exactly one fenced `social-plan` block** holding the same JSON as
+   `plan.json`.
 
-It never posts, never calls a social platform's API, never sends anything anywhere, and never writes outside
-`/workspace`.
+A follow-up turn (the app sends `previous_response_id`) may revise one platform's draft or write variants (e.g.
+three X hooks), then rewrites `plan.json` and the affected files so they stay in agreement.
+
+The method is in `seeds/home/.claude/CLAUDE.md` (workflow, hard limits, `plan.json` schema, the `social-plan` block
+contract, the "never" list) and `seeds/home/.claude/reference/platforms.md` (per-platform idioms and the
+cross-posting conventions).
 
 ## Files
 
-| File | Role |
+| File | What it is |
 |---|---|
-| `harness.json` | manifest: version `2.1.318-1`, provider `anthropic`, `defaults.model` `deepseek-v4-pro`, install egress `registry.npmjs.org`, run egress `*` (public web, read-only; the door refuses private addresses), `persist` `[".claude/projects"]`, `run.timeout_s` 900, operator settings `BRAND_VOICE` / `HASHTAG_MAX` / `TIMEZONE` |
-| `install` | `npm install -g --prefix "$HG_TOOLS" --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code@<version>` |
-| `run` | one turn (Python + hgkit): the same command and stream mapping as the `claude-code` base, plus `metadata` surfaced into the prompt |
-| `seeds/home/.claude/CLAUDE.md` | the agent's method and standing rules: read the source fully, one idea per post, hook first line, every number from the source, accessibility (alt text, no emoji-only lines, camel-cased hashtags), cross-posting, and the "never" list |
-| `seeds/home/.claude/reference/social-platforms.md` | each platform's limit, idiom and conventions (the drafting reference) |
-| `seeds/home/.claude/settings.json` | the inside fence: permission `deny` rules for git remote operations, package managers, `curl`/`wget`, and every write outside `/workspace`; PreToolUse hook on `Bash`, `Write|Edit|MultiEdit` and `WebFetch` |
-| `seeds/home/.claude/hooks/pre-tool-use.py` | the hook: refuses any POST/PUT/PATCH, any social-platform API host (`api.twitter.com`, `api.x.com`, `graph.facebook.com`, `api.linkedin.com`, `api.threads.net`, `bsky.social`), any `/api/` endpoint, and any write outside `/workspace` |
-| `README.md`, `tests/` | this file; recorded fixtures, `test_run.py`, `test_hook.py` |
+| `harness.json` | the manifest: name, version `2.1.319-1`, `anthropic` provider API, default model `deepseek-v4-pro`, install/run egress, timeouts, `persist`, operator `settings` |
+| `install` | bash: `npm install -g` of the pinned CLI into `$HG_TOOLS`, 3 retries, `--allow-scripts=@anthropic-ai/claude-code`, version check |
+| `run` | Python: one turn — request in, `claude -p --output-format stream-json` run, Responses events out; both continuity paths; the Mapper below |
+| `seeds/home/.claude/CLAUDE.md` | standing instructions: the method, limits, schema, block contract, "never" list |
+| `seeds/home/.claude/reference/platforms.md` | per-platform idioms/limits, voice rules, cross-posting conventions |
+| `seeds/home/.claude/settings.json` | `permissions.deny` (git remote ops, package managers) and the `PreToolUse` hook |
+| `seeds/home/.claude/hooks/guard.py` | the PreToolUse guard: refuses sending, social API hosts, Mastodon `/api/`, writes outside the workspace |
+| `tests/` | recorded CLI output as fixtures + `test_run.py` (runs `run` on them, checks every line with `hgkit.check`, and unit-tests the guard) |
+
+There is no `seeds/workspace/` starter (the agent creates `campaigns/<slug>/` itself) and no `mcp` catalog, and the
+package declares **no secrets** — the provider key is a per-turn token, and the operator settings are plain values,
+never keys.
 
 ## The command
 
-Identical to the `claude-code` base: `claude -p "<input>" --output-format stream-json --verbose
---include-partial-messages --system-prompt-snapshot off --dangerously-skip-permissions --model "$HG_MODEL"
-[--append-system-prompt <instructions>] [--effort <level>] [--resume <id>]`, with `ANTHROPIC_BASE_URL`, the API key and
-every model alias pinned to the turn's provider and model, and telemetry/update/error-reporting switched off. The
-deny list and hook in `seeds/home/.claude` are what make the `--dangerously-skip-permissions` run safe; they are the
-real fence, and the agent is told not to fight them.
+`run` executes (on the sandbox's `python3`, with `hgkit` on `PYTHONPATH`):
 
-## Request fields
+```
+claude -p --output-format stream-json --verbose --include-partial-messages \
+  --dangerously-skip-permissions --system-prompt-snapshot off \
+  --tools Read,Grep,Glob,Write,Edit,WebFetch,WebSearch,Bash \
+  --model <HG_MODEL> \
+  [--resume <session-id>] \
+  [--append-system-prompt-file <tmp>/instructions.md] \
+  [--effort <mapped>] [--json-schema <schema>] [--max-turns <n>]
+```
 
-As the `claude-code` base, plus:
+with `ANTHROPIC_BASE_URL=$HG_PROVIDER_URL`, `ANTHROPIC_API_KEY=$HG_PROVIDER_TOKEN`, telemetry/autoupdater/reporting
+switched off, and every model-alias variable pinned to the request's model. The CLI's own `~/.claude/settings.json`
+(deny list + hook) is seeded under `$HOME`, and Claude Code's `--tools` list is fixed to the eight above regardless
+of the request.
+
+## Request fields → where they go
 
 | Request field | Where it goes |
 |---|---|
-| `metadata` (object) | appended to the prompt as `Request metadata: k=v; …` (lists comma-joined), so `metadata.campaign` and `metadata.platforms` reach the agent |
+| `input` (text) | the CLI's prompt on stdin |
+| `instructions` | the appended system-prompt file (together with the operator settings block) |
+| `model` | `--model` (the harness default `deepseek-v4-pro` when the request names none) |
+| `reasoning.effort` | `--effort` (`minimal`/`low`→low, `medium`, `high`, `xhigh`, `max`; `none` turns thinking off) |
+| `text.format` (`json_schema`) | `--json-schema` |
+| `max_tool_calls` | `--max-turns` (Claude Code stops; reported `response.incomplete` with reason `max_messages`) |
+| `metadata.campaign`, `metadata.platforms` | injected into the prompt ("Campaign slug: …", "Platforms to post on: …") |
+| `input_file` / `input_image` | written into the working directory by `req.place_inputs()` and named in the prompt |
+| `tools` | ignored — the fixed eight-tool list is always used |
+| `mcp_servers` | supported generically by the run script, but this package declares **no MCP servers** |
 
-The same fields are ignored (`temperature`, `top_p`, `max_output_tokens`, `max_tool_calls`, `store: false`), named in
-`metadata.hg_ignored_fields`.
+**Ignored** (named in the terminal event's `metadata.hg_ignored_fields` when set): `tool_choice`,
+`parallel_tool_calls`, `temperature`, `top_p`, `top_logprobs`, `max_output_tokens`, `truncation`, `include`,
+`prompt_cache_key`, `service_tier`.
 
 ## Output mapping
 
-As the `claude-code` base: Claude Code `stream-json` → Responses events (thinking → reasoning, text → message,
-`Bash` → `shell_call`/`shell_call_output`, `Write`/`Edit` → `apply_patch_call`, other tools → `function_call`, `result`
-→ `response.completed`/`failed`/`incomplete`). Exactly one terminal event, last. The files the agent writes under
-`/workspace/campaigns/<slug>/` are the deliverable; `plan.json` is the app's machine-readable part.
+The `Mapper` turns Claude Code's stream-json lines into Responses events; each raw CLI line is also kept in the
+turn's log with the `claude-stream ` prefix, never in the events.
+
+| Claude Code | Responses event |
+|---|---|
+| `system init` / `result` (`session_id`) | saved to `$HG_STATE/session` at once; `result` also carries usage |
+| `stream_event` `content_block_delta` text | `response.output_text.delta` → `out.say` |
+| `content_block_delta` thinking / a `thinking` block | `out.think` |
+| `tool_use` `Bash` | `out.ran` (a `shell_call`); its `tool_result` → `shell_call_output` |
+| `tool_use` `Write` / `Edit` / `MultiEdit` | `out.wrote` / `out.edited` (at the result) |
+| `tool_use` `mcp__<server>__<tool>` | `out.called`; its result → `call.done` / `call.failed` |
+| any other `tool_use` | `out.used`; its result → `call.done` / `call.failed` |
+| `result` success | `response.completed` with usage and `metadata` (`claude_session_id`, `claude_num_turns`, `claude_version`) |
+| `result` `error_max_turns` | `response.incomplete` (`max_messages`) |
+| anything else / API error | `response.failed` (401/403→`authentication_error`, 429→`rate_limit_exceeded`, ≥500→`server_error`, else `provider_error`/`cli_error`) |
+
+Exactly one terminal event, last.
 
 ## Continuity
 
-Two paths, as the base: the CLI's own session id (saved to `$HG_STATE` the moment the `init` line reports it,
-`--resume <id>` next turn), and the history (`req.transcript()` as context when there is no saved id or the CLI
-refuses it). A follow-up note — "revise the LinkedIn draft", "three hooks for the X thread" — lands on the same
-session and is handled on the existing files, not started over.
+Two paths, both required and both in place:
 
-## May and may not (as demonstrated)
-
-| Capability | Proven by |
-|---|---|
-| May read the public web | run egress `*` (door refuses private addresses); the live campaign run WebFetched a real article |
-| May run read-only shell commands and write only inside `/workspace` | `test_hook.py` (`bash-read-only`, `write-in-ws`, `multiedit-in-ws` allowed) |
-| May write the campaign files under `/workspace/campaigns/<slug>/` | the live campaign run wrote `plan.json`, `<platform>.md` ×7, `strategy.md`; recorded as `tests/fixtures/realistic-run.jsonl` |
-| May not POST/PUT/PATCH or upload | `test_hook.py` denies `curl -d`, `curl --request POST`, `requests.post`, `--upload-file`; the hook scans the command before it runs |
-| May not reach a social platform's API | `test_hook.py` denies every `SOCIAL_HOSTS` host and any `/api/` URL, for `Bash` and `WebFetch` |
-| May not write outside `/workspace` | `test_hook.py` denies `Write`/`Edit`/`MultiEdit` outside the workspace and shell redirects outside it; `settings.json` deny rules are the backstop |
-| May not run git remote operations or install software | `settings.json` deny rules (`git push|fetch|pull|clone|remote`, `npm`, `npx`, `pip`, `apt`, `curl`, `wget`, …) |
-
-The forbidden run is recorded: `tests/fixtures/forbidden-run.jsonl` is a mapped `run` output where the model tried to
-reach a social API and the hook refused it, and `tests/fixtures/claude-forbidden.jsonl` is the raw `claude` stream
-where the model refused outright without attempting the tool.
+1. **Native resume.** The CLI's session id is saved to `req.state` the moment the `system init` event reports it
+   (so a turn killed mid-way still saves it), and the next turn resumes with `--resume <id>`. The CLI's own session
+   store lives under `$HOME/.claude/projects`, named in `harness.json`'s `persist`.
+2. **History fallback.** When there is no saved id, or the CLI refuses it ("No conversation found"), `run` starts a
+   fresh CLI session and prepends `req.transcript()` (`$HG_HISTORY`) to the prompt, so a continuation from another
+   harness — or a lost session — still has the whole conversation.
 
 ## Operator settings
 
-| Setting | Default | Effect |
+Named like environment variables (injected by the platform), with defaults; **no secrets**.
+
+| Setting | Default | What it does |
 |---|---|---|
-| `BRAND_VOICE` | `A friendly, plain-spoken B2B software company. Never hype, never jargon, never promise results the product cannot show.` | the voice every draft stays in |
-| `HASHTAG_MAX` | `5` | the most hashtags per post |
-| `TIMEZONE` | `America/Chicago` | the timezone for `when` in `plan.json` |
+| `BRAND_VOICE` | A friendly, plain-spoken B2B software company. It never boasts, never invents numbers, never disparages competitors or people. | the voice every draft is written in, and what it never says |
+| `HASHTAG_MAX` | `5` | the most hashtags allowed on any one post |
+| `TIMEZONE` | `America/Chicago` | IANA timezone used to render relative times as ISO 8601 date-times in `plan.json` |
 
-No secrets: the provider key is the platform's per-turn token; nothing here needs a key.
+## Egress
 
-## Known limits
+- **install** — `registry.npmjs.org` (observed; the npm registry is all the install touches).
+- **run** — `*` (the public web, read-only; private addresses are refused by the door regardless), with denials for
+  the six social API hosts: `api.twitter.com`, `api.x.com`, `graph.facebook.com`, `api.linkedin.com`,
+  `api.threads.net`, `bsky.social`.
 
-- The `claude-code` base limits apply (raw `--dangerously-skip-permissions`, run egress `*`, the unrecognized-model
-  stderr warning).
-- The fence is defense in depth, not proof: the hook reads the command text and the deny list matches command
-  prefixes. A determined prompt-injection that finds a genuinely novel way to POST could still need the door; the
-  egress door remains the outer fence.
-- `run.timeout_s` is 900, matched to a full campaign (read the source, draft seven platforms, write nine files).
+`run.egress` is `*` because the agent reads whatever public URL a campaign points at — it cannot be enumerated in
+advance. The six hosts the agent must never call are denied at the door; a Mastodon instance's `/api/` cannot be
+denied by host (any instance's host is possible), so the PreToolUse hook refuses any URL whose path starts with
+`/api/`. This is the same rule the agent honors in intent via its instructions.
+
+## May and may not (as demonstrated)
+
+**May** (all live-validated): read a public URL with WebFetch or `curl -sL`; search the web; write
+`plan.json`, the `<platform>.md` files and `strategy.md` under `/workspace/campaigns/<slug>/`; resume its own
+session; continue from history.
+
+**May not** (each refused in a recorded run or a guard unit test):
+
+| Action | Enforced by |
+|---|---|
+| POST / PUT / PATCH / DELETE anything (`curl -X/-d/--data/-F/-T`, `wget --post-*`, `http`, inline `requests`/`httpx`/`aiohttp`, `fetch` method) | PreToolUse guard (Bash) |
+| call `api.twitter.com`, `api.x.com`, `graph.facebook.com`, `api.linkedin.com`, `api.threads.net`, `bsky.social` | egress denial + PreToolUse guard (Bash and WebFetch) |
+| call any Mastodon instance's `/api/` | PreToolUse guard (Bash and WebFetch) |
+| write/edit outside the workspace | PreToolUse guard (Write/Edit/MultiEdit) |
+| git push / pull / fetch / remote / clone | `permissions.deny` |
+| install software at runtime (npm/yarn/pip/apt/snap/yum/dnf/cargo/go/gem) | `permissions.deny` |
+
+The guard fails closed: any guard error denies the call with the reason in the message. `--tools` further limits the
+agent to the eight named tools.
 
 ## Tests
 
-- `python3 tests/test_run.py` — `run` against a stub `claude` replaying recorded fixtures (text, tools, provider
-  error, killed turn, resume, history fallback, stale-resume fallback), every mapped line checked with `hgkit.check`.
-- `python3 tests/test_hook.py` — the PreToolUse hook fed 15 events (benign reads/writes allowed; every forbidden
-  POST, social host, `/api/` URL and outside-workspace write denied).
+`tests/fixtures/*.jsonl` are recorded Claude Code stream-json runs: a completed tool turn, a denied POST, a denied
+git push, a provider error, and a stopped-short (`max_turns`) turn. `tests/fake_claude` is a fake `claude` on `PATH`
+that logs its argv/stdin and replays the fixture. `tests/test_run.py` runs `run` against each fixture and checks the
+whole stdout with `hgkit.check` (the platform's own validator), plus unit-tests the PreToolUse guard directly, and
+asserts the session is saved then resumed, history continues when there is no session, campaign metadata reaches the
+prompt, and no secret placeholder appears in the output.
 
-Recorded fixtures in `tests/fixtures/`: `realistic-run.jsonl` is the mapped, hgkit-checked output of a live campaign
-run on a real public article (Wikipedia's "Coffee") — 89 events, 32 output items, ending `response.completed`;
-`forbidden-run.jsonl` is the mapped run where the hook refused a POST to a social API; `claude-forbidden.jsonl` is
-the raw `claude` stream where the model refused the same command outright.
+```
+PYTHONPATH=/opt/hg/lib python3 -m pytest tests/ -q     # 12 passed
+```
 
-On the platform: install the package and send a campaign turn; **Observability → Sessions** shows every mapped event,
-the CLI's stderr tail, exit code, provider calls and door connections, and the campaign files land under
-`/workspace/campaigns/<slug>/`.
+Every recorded run also passes `python3 -m hgkit check`.
+
+## What could not be tried here
+
+`run.egress` could not be narrowed to an observed host list: `assets/observe-egress.py` returned 407 proxy-auth
+errors through the local chaining proxy, so the run egress is `*` narrowed by the six host denials and the hook,
+rather than an enumerated list (the install host was confirmed directly). A turn the app actually runs is the real
+e2e test; the session page will show any host the door denies, to bring back here.

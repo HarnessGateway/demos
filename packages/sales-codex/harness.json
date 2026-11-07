@@ -2,20 +2,20 @@
   "contract": 1,
   "name": "sales-codex",
   "version": "0.167.0-1",
-  "description": "An account executive's sales agent on Codex (OpenAI's Codex CLI 0.167.0). One account per task: research the account on the public web and write an account brief, draft outreach and follow-up email, prepare a call plan, summarize notes, and propose next steps — as prose and as files under the workspace. It never sends anything and never writes to the CRM.",
+  "description": "The Showroom's CRM sales assistant on OpenAI's Codex CLI (headless, non-interactive). Each turn it reads the CRM snapshot (customers.json), reasons over overdue follow-ups, stalling proposals, proximity, pipeline value by stage and referral asks, and answers in short concrete prose; when outreach is due it proposes ready-to-send drafts as a single crm-drafts JSON block. It never sends or writes to the CRM, is fenced by Codex's workspace-write sandbox and an execpolicy that refuses remote, network and destructive commands, and reaches the model only through the platform's provider.",
   "provider": {"apis": ["openai"]},
   "defaults": {"model": "deepseek-v4-pro"},
-  "install": {"egress": ["registry.npmjs.org"], "timeout_s": 300},
-  "run": {"egress": ["*"], "timeout_s": 900, "stop_grace_s": 15},
+  "install": {"egress": ["registry.npmjs.org"], "timeout_s": 900},
+  "run": {"egress": [], "timeout_s": 600, "stop_grace_s": 10},
   "persist": [".codex"],
   "settings": {
-    "SALES_PLAYBOOK": {
-      "description": "The organization's sales playbook the agent applies to every account: audience, value proposition, messaging and tone.",
-      "default": "We sell a B2B software platform to mid-market operations teams. Our value proposition: fewer manual steps, cleaner handoffs and one place to see the work. Tone: direct, concrete, respectful of the reader's time; no hype, no hard close. Every account gets a brief on what they do and where our platform helps, an email that names a specific problem, and a call plan that leads with questions."
+    "STORE_PROFILE": {
+      "description": "The store's voice: what it sells and how it talks to customers, given to the agent every turn.",
+      "default": "A family-owned home-improvement showroom selling kitchen and bath remodels, flooring, cabinets and countertops. Warm, plain-spoken, no pressure."
     },
-    "REGION": {
-      "description": "The market region the agent assumes for tone, spelling and examples.",
-      "default": "US"
+    "SIGNATURE": {
+      "description": "The signature appended to drafted email (and SMS, when it fits) messages.",
+      "default": "— The Showroom team"
     }
   }
 }

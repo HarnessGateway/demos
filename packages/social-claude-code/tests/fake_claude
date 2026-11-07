@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+{ echo "ARGV:$*"; echo "STDIN:$(cat)"; } >> "${FAKE_LOG:-/tmp/fake.log}"
+cat "${FAKE_FIXTURE:?}"

@@ -1,21 +1,45 @@
 # Biofuels desk — glossary
 
-| Term | Meaning |
-|---|---|
-| RIN | Renewable Identification Number, the compliance credit of the federal RFS. One RIN per ethanol-equivalent gallon of renewable fuel generated. |
-| D-code | The RIN category. D3 cellulosic biofuel, D4 biomass-based diesel, D5 advanced biofuel, D6 conventional (corn) ethanol. |
-| RFS | Renewable Fuel Standard, the federal program under which refiners and importers retire RINs against their volume obligations. |
-| RVO | Renewable Volume Obligation, the gallons a party must retire in a compliance year. |
-| LCFS | California's Low Carbon Fuel Standard, a separate credit market run by CARB. |
-| LCFS credit | A metric-ton CO2-equivalent reduction credit under CARB; fuel CI below the annual benchmark generates credits. |
-| CI | Carbon Intensity, gCO2e/MJ; the LCFS scoring metric. |
-| SAF | Sustainable Aviation Fuel, a low-CI jet-fuel replacement. |
-| Renewable diesel | A drop-in diesel made from fats/oils (soybean oil, corn oil, tallow, UCO), distinct from biodiesel. |
-| Biodiesel | Fatty-acid methyl ester (FAME), usually blended into diesel. |
-| Ethanol | Conventional (D6) fuel ethanol, mostly corn-based; the desk tracks EIA weekly production and stocks. |
-| Feedstock | The input oil/fat: soybean oil, distillers corn oil (DCO), used cooking oil (UCO), tallow, canola. |
-| D4 RIN / D6 RIN | The two most-traded RIN categories; watch their spread for biofuel economics. |
-| EIA weekly ethanol data | EIA's weekly fuel-ethanol series: plant production (thousand bbl/day), stocks, imports, exports. |
-| Production | For ethanol, EIA's weekly estimate of U.S. fuel-ethanol plant output. |
-| Stocks | End-of-week ethanol inventories reported by EIA. |
-| Four-week average | EIA's rolling 4-week mean, used to smooth weekly volatility. |
+## Compliance credits
+
+- **RIN** — Renewable Identification Number, the compliance credit of the federal Renewable Fuel Standard
+  (RFS), administered by EPA. One RIN attaches to each gallon of qualifying renewable fuel. RINs are separated from
+  the fuel and traded; prices are quoted in **cents per RIN**.
+- **RIN category (D-code)** — the fuel pathway the RIN belongs to:
+  - **D3** — cellulosic biofuel.
+  - **D4** — biomass-based diesel: biodiesel and renewable diesel.
+  - **D5** — advanced biofuel (the catch-all advanced bucket; D3 and D4 nest inside it).
+  - **D6** — conventional renewable fuel, overwhelmingly corn ethanol.
+- **RVO** — Renewable Volume Obligation: the gallons an obligated party (refiner/importer) must retire each
+  compliance year. EPA sets annual RVOs by rule; the rule text lands in the Federal Register.
+- **Obligated party** — refiner or importer of gasoline/diesel that must retire RINs.
+
+- **LCFS credit** — the compliance credit of California's Low Carbon Fuel Standard, run by CARB. A fuel with a carbon
+  intensity below the annual benchmark generates credits; one above it generates deficits. Traded in **dollars per
+  metric ton CO₂e**.
+- **CI** — carbon intensity, grams CO₂-equivalent per megajoule (gCO₂e/MJ). The number a fuel's lifecycle analysis
+  produces, and what LCFS credits and deficits are built from.
+
+## Fuels
+
+- **Ethanol** — corn ethanol, the D6 workhorse. The desk's core volume market; EIA reports weekly U.S. production and
+  stocks.
+- **Biodiesel** — FAME (fatty-acid methyl ester) made from oils/fats; a D4 fuel.
+- **Renewable diesel** — chemically a drop-in diesel, made from the same fats/oils; also D4, and the fastest-growing
+  biomass-based diesel.
+- **SAF** — sustainable aviation fuel; drop-in jet from fats, oils, or ethanol pathways. Small volume, high policy
+  interest.
+- **Feedstocks** — the inputs: soybean oil (the benchmark), corn, distillers' corn oil, canola oil, tallow, and used
+  cooking oil (UCO). Feedstock price is the marginal cost of every D4 gallon.
+
+## Units
+
+- 1 barrel = 42 gallons.
+- Ethanol production: thousand barrels per day (kb/d) or million gallons/week.
+- Stocks: million barrels.
+- RINs: cents/RIN; LCFS: $/metric ton.
+
+## What the desk counts
+
+RIN and LCFS credit prices and volumes, weekly ethanol production and stocks, feedstock prices, and the rulemakings
+(RVO, LCFS amendments) that move all of them.

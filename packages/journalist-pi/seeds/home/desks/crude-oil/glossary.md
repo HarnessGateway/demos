@@ -1,15 +1,30 @@
 # Crude-oil desk — glossary
 
-| Term | Meaning |
-|---|---|
-| WPSR | EIA's Weekly Petroleum Status Report, the desk's core release. |
-| Crude stocks | Commercial U.S. crude oil inventories, million barrels, ex-SPR. |
-| Cushing | Cushing, Oklahoma — the WTI delivery hub; its crude stocks are the most-watched single number. |
-| SPR | Strategic Petroleum Reserve, reported separately from commercial stocks. |
-| Production | U.S. crude oil production, thousand barrels per day (monthly, EIA). |
-| Refinery runs / utilization | Refinery gross inputs and the utilization rate (percent of operable capacity). |
-| Net imports | Crude imports minus exports, million barrels per day. |
-| Distillate / gasoline stocks | The product inventories reported alongside crude in the WPSR. |
-| WTI / Brent | West Texas Intermediate and Brent, the benchmark crudes. |
-| Four-week average | EIA's rolling 4-week mean, used to smooth weekly noise. |
-| Draw / build | A week-over-week fall (draw) or rise (build) in stocks; the market's first reaction. |
+## The WPSR numbers
+
+- **WPSR** — EIA's Weekly Petroleum Status Report, the desk's core release. Weekly U.S. petroleum supply and
+  disposition: crude stocks, Cushing stocks, production, refinery runs, imports, and product inventories.
+- **Commercial crude stocks** — U.S. commercial crude oil inventories, million barrels (excludes the Strategic
+  Petroleum Reserve).
+- **Cushing** — Cushing, Oklahoma: the delivery point for the NYMEX WTI contract. Cushing stocks are the
+  single most-watched number in the WPSR.
+- **Crude production** — U.S. field production of crude oil, thousand barrels/day (kb/d).
+- **Refinery runs / inputs** — crude oil inputs to U.S. refineries, kb/d; utilization is the percent of operable
+  capacity.
+- **Imports** — U.S. crude oil imports, kb/d.
+- **Products** — gasoline and distillate (diesel/heating oil) inventories, million barrels, also in the WPSR.
+
+## Benchmarks
+
+- **WTI** — West Texas Intermediate, the U.S. light-sweet crude benchmark; its futures settle at Cushing.
+- **Brent** — the global seaborne benchmark the desk references for the international read; the WPSR is domestic.
+
+## Units
+
+- Crude and products: million barrels for stocks; thousand barrels/day (kb/d) for production, runs, and imports.
+- Prices: dollars per barrel ($/bbl).
+
+## What the desk counts
+
+The weekly U.S. crude balance — stocks (especially Cushing), production, refinery runs, imports — and the rule and
+regulation moves that change it.

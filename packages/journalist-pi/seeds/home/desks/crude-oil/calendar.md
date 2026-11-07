@@ -1,11 +1,22 @@
-# Crude-oil desk — calendar
+# Crude-oil desk — release calendar
 
-| Release | Cadence | Time (ET) | Note |
-|---|---|---|---|
-| EIA Weekly Petroleum Status Report | Wednesdays | 10:30 | The desk's core: crude stocks, Cushing, production, refinery runs, product stocks. |
-| EIA monthly crude production | End of month (prior month's data) | — | Production updates land monthly, not weekly. |
-| API weekly report | Tuesdays | 16:30 | Trade preview — do NOT cite it; EIA only. |
-| OPEC monthly report | Monthly | — | Context only; do NOT cite OPEC, it is not on the allow-list. |
-| Federal Register petroleum rule actions | As published | — | Search the docket when a rule is in the assignment. |
+Times are U.S. Eastern unless noted; all releases land on the hosts in `sources.md`.
 
-For a data-release task, the WPSR is the lead; use this table to time the "what to watch" section.
+## Weekly
+
+- **EIA Weekly Petroleum Status Report (WPSR)** — Wednesdays at 10:30 a.m. ET (Thursday at 11:00 a.m. when Monday was
+  a federal holiday). Crude stocks, Cushing, production, refinery runs, imports, product inventories.
+  `eia.gov/petroleum/supply/weekly/`.
+
+## Monthly
+
+- **EIA Short-Term Energy Outlook (STEO)** — monthly, typically the second Tuesday; price and balance projections.
+  `eia.gov/outlooks/steo/`.
+- **EIA Drilling Productivity Report** — monthly; per-well and rig productivity by basin (for the production outlook).
+  `eia.gov/petroleum/drilling/`.
+
+## As announced
+
+- **Federal Register petroleum and fuels rulemaking** — SPR and fuels regulatory actions, as published on
+  `federalregister.gov`.
+- **EPA fuels actions** — RFS and fuels waivers that move refinery and product economics, as published on `epa.gov`.

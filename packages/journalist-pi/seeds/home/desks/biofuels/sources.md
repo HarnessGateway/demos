@@ -1,35 +1,46 @@
 # Biofuels desk — primary sources
 
-Use only these hosts. Reach the exact pages below; do not follow links to other hosts.
+Only these hosts, only over https. Fetch the exact page you need; do not crawl or follow links off these hosts.
 
-## EIA (energy.gov data, host `www.eia.gov`)
+## EIA — the volume numbers
 
-- Weekly Petroleum Status Report (ethanol is inside it): https://www.eia.gov/petroleum/supply/weekly/
-- Weekly fuel-ethanol plant production: https://www.eia.gov/dnav/pet/pet_pnp_wprode_s1_w.htm
-- Weekly ethanol stocks and imports/exports live under the same `dnav/pet` data browser; use the series
-  search from the production page rather than guessing URLs.
+- `https://www.eia.gov/petroleum/supply/weekly/` — **Weekly Petroleum Status Report (WPSR)**. Weekly U.S. fuel
+  ethanol production (thousand barrels/day), ethanol ending stocks (million barrels), and the crude-side tables. The
+  desk's weekly production number comes from here.
+- `https://www.eia.gov/petroleum/ethanol/` — fuel ethanol landing page and weekly ethanol data.
+- `https://www.eia.gov/todayinenergy/` — EIA's analysts on anything fuel-related.
 
-## EPA (host `www.epa.gov`)
+## EIA API
 
-- Renewable Fuel Standard program (RVO rules, RFS policy): https://www.epa.gov/renewable-fuel-standard-program
-- RIN trades and price information (RIN generation, transactions, prices): https://www.epa.gov/fuels-registration-reporting-and-compliance-help/rin-trades-and-price-information
+- `https://api.eia.gov/` — the EIA API (v2). Prefer it for a clean series when a page is awkward to parse; the desk
+  uses the series behind WPSR ethanol production and stocks. (Callers that give an API key pass it through the
+  assignment; the desk pack itself holds none.)
 
-## CARB (host `ww2.arb.ca.gov`)
+## EPA — RINs and the RFS
 
-- Low Carbon Fuel Standard program: https://ww2.arb.ca.gov/our-work/programs/low-carbon-fuel-standard
-- LCFS data dashboard (credit prices, CI data): https://ww2.arb.ca.gov/resources/documents/lcfs-data-dashboard
+- `https://www.epa.gov/renewable-fuel-standard-program` — the RFS: annual RVO rulemakings, proposals, final rules.
+- `https://www.epa.gov/fuels-registration-reporting-and-compliance-help/rin-trades-and-price-information` — RIN
+  trade volume and price information EPA publishes.
+- `https://www.epa.gov/fuels-registration-reporting-and-compliance-help/emts-overview` — EMTS, the RIN generation
+  and transaction system; monthly RIN generation numbers.
 
-Note: CARB's site sometimes refuses automated fetches (HTTP 419) — retry once with a browser-like
-User-Agent; if it still refuses, say so in `verify.md` and mark the claim unverified.
+## CARB — LCFS
 
-## Federal Register (host `www.federalregister.gov`)
+- `https://ww2.arb.ca.gov/our-work/programs/low-carbon-fuel-standard` — the LCFS program: benchmarks, CI pathways,
+  amendments.
+- `https://ww2.arb.ca.gov/resources/documents/lcfs-credit-transfer-activity-reports` — **weekly LCFS credit
+  transfer activity reports**: credit price ($/metric ton) and volume transferred. The desk's weekly LCFS price.
 
-- RFS RVO proposed and final rules: search https://www.federalregister.gov/ for the EPA RFS docket.
+## Federal Register
 
-## USDA AMS (host `www.ams.usda.gov`)
+- `https://www.federalregister.gov/` — search `renewable fuel standard`, `renewable volume obligation`, `low carbon
+  fuel standard`. The authoritative text of EPA RVO rules and CARB-related federal actions.
 
-- Market news (feedstock cash prices, e.g. soybean oil): https://www.ams.usda.gov/market-news
+## USDA — feedstocks and spot ethanol
 
-## USDA ERS (host `www.ers.usda.gov`)
-
-- Feed grains sector at a glance (ethanol/feedstock outlook): https://www.ers.usda.gov/topics/crops/corn-and-other-feed-grains/feed-grains-sector-at-a-glance/
+- `https://www.ams.usda.gov/market-news/bioenergy` — AMS bioenergy market news: national weekly ethanol spot prices
+  and feedstock (soybean oil, distillers' corn oil) prices.
+- `https://www.ers.usda.gov/topics/crops/soybeans-and-oil-crops/` — ERS oil crops: soybean oil supply, use, and
+  price. The desk's feedstock supply-side read.
+- `https://www.ers.usda.gov/topics/crops/corn-and-other-feed-grains/` — ERS feed grains: corn supply, use, and
+  price.

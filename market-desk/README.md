@@ -1,37 +1,33 @@
-# Market Desk
+# Market Desk, with a journalist agent in it
 
-[`demo.mp4`](demo.mp4) records the journalist-pi package being built in the console and this app in use.
-
-A commodities newsroom desk, run by its editors: a schedule of standing stories (the morning briefing, the EIA
-weekly data story, a policy explainer), ad-hoc assignments, a research thread, and a review step every draft goes
-through before it is approved. The journalist is the [`journalist-pi`](../packages/journalist-pi/) harness package
-on HarnessGateway: the pi coding agent tailored to gather intel from the desk's primary sources, form impressions, and
-write a cited draft with a list of the claims a human must verify.
+A commodities newsroom's desk app for two desks, biofuels and crude oil. Editors assign stories, by hand or from the
+desk's **release calendar** (daily briefings, the EIA Weekly Petroleum Status Report on Wednesdays, the weekly wraps,
+monthly releases). Each story goes to a **journalist agent**: the [`journalist-pi`](../packages/journalist-pi/)
+harness package on HarnessGateway, the pi coding agent tailored to the desk. It reads only the desk's primary sources
+(EIA, EPA, CARB, the Federal Register, USDA), writes a cited draft with charts, lists its sources and every claim a
+person must verify, and files it. The editor reads the draft, ticks off each claim, sends it back with a note or
+approves it. Nothing is published from here.
 
 ```bash
-python3 server.py            # http://127.0.0.1:8910 ; HG_API, HG_KEY, HG_MODEL from ./.env
+python3 server.py            # http://127.0.0.1:8910 ; HG_API, HG_KEY, HG_MODEL from ./.env (scripts/setup.py)
 ```
 
-**Today** is the day's schedule and assignments (run one now, or the whole day). **Review** shows each draft with its
-chart, its sources and its verify list; the editor ticks every claim, sends the draft back with a note (a follow-up turn
-on the same response, so the agent revises in the same workspace) or approves it. **Ask** is the desk's research
-thread, one session per desk. **Archive** holds what was approved, with the response and session that produced it.
+Stories live in `desk.db` (SQLite), made on first start.
 
-## What it shows
+## How the agent is wired in
 
 | In the desk | On the platform |
 |---|---|
-| A story is one assignment | one background turn with `metadata.desk` and `metadata.task`; the agent writes `/workspace/desk/<date>/<desk>-<slug>/` with `draft.md`, `sources.json`, `verify.md` and charts |
-| Send back with a note | `previous_response_id`: the revision runs in the same workspace, on the same files |
-| The research thread | a session per desk: each question continues the last answer |
-| An editor's name on every request | `user`, so Sessions and Usage show the desk app (its key, `market-desk`) and the editor |
-| Sources only | the package's egress is the desk's primary sources and nothing else; the door refuses the rest |
+| Assign a story | a **background** Responses request with `metadata.desk` and `metadata.task` (briefing, data-release, market-wrap, explainer, news-short, research) |
+| The agent's steps while it reports | the response's `shell_call` items, polled every few seconds |
+| The filed draft, its charts, sources and claims | the agent ends with one fenced `desk-report` block naming the folder it wrote; the desk reads `draft.md`, `sources.json`, `verify.md` and the PNG charts from it with the **Containers API**, relayed so the browser never holds the key |
+| Send back with a note | `previous_response_id`: the same **session**, so the agent revises its own files |
+| Only the primary sources | the package's `run.egress` lists those hosts; the platform's door refuses every other host |
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `server.py` | the desk: jobs in `data.json`, the schedule, revisions and approvals, the agent's folder read back |
-| `config.json` | the desks and the schedule (times in `timezone`) |
-| `index.html` | the page: Today, Review, Ask, Archive |
-| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a run-only key labelled `market-desk`), `HG_MODEL` (`journalist-pi/<provider>/<model>`) |
+| `server.py` | the desk: SQLite, the calendar, assignments, revisions, reading the agent's folder back |
+| `index.html` | the page: pipeline by status, stories, calendar, and the story drawer (draft, verify, sources, agent) |
+| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a run-only key labelled `market-desk`), `HG_MODEL` |

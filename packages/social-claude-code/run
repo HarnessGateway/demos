@@ -1,337 +1,510 @@
 #!/usr/bin/env python3
-"""One turn of Claude Code as a Responses stream.
+"""social-claude-code, one turn: the Responses request in, `claude -p --output-format stream-json` run, Responses
+events out.
 
-Runs `claude --print --output-format stream-json` against the turn's provider, maps its stream onto Responses
-events, keeps the CLI's own session id in HG_STATE for native resume, and falls back to the conversation history
-when there is no resumable session (a fork, a kill, another harness).
+    run()      places the request's files in the workspace, builds the CLI's command line and environment from the
+               request, $HG_MCP and the operator settings (BRAND_VOICE, HASHTAG_MAX, TIMEZONE), runs it and feeds
+               every stdout line to a Mapper (each raw line is also kept in the turn's log, prefixed `claude-stream `)
+    Mapper     maps Claude Code's stream-json onto hgkit.Emitter:
+                 system init / result                    -> the CLI's session id into $HG_STATE/session (--resume)
+                 stream_event content_block_delta text   -> out.say (token level)
+                 thinking deltas, or the whole block     -> out.think
+                 tool_use Bash                           -> out.ran, its tool_result -> run.done
+                 tool_use Write / Edit / MultiEdit       -> out.wrote / out.edited (at the result)
+                 tool_use mcp__<server>__<tool>          -> out.called (in progress at the call), its result -> call.done
+                 any other tool_use                      -> out.used, its tool_result -> call.done
+                 result                                  -> usage on the terminal event; success -> out.done,
+                                                            error_max_turns -> out.stopped, anything else -> out.failed
+
+The CLI is fenced by the seeds under $HOME/.claude: the standing instructions (CLAUDE.md), the permission deny list
+and the PreToolUse guard (settings.json), and the platform reference. Runs on the sandbox's python3; hgkit is on
+PYTHONPATH there.
 """
+from __future__ import annotations
+
+import contextlib
 import json
 import os
 import re
-import shutil
-import signal
+import shlex
 import subprocess
 import sys
+import tempfile
 import threading
+from pathlib import Path
+from typing import Any
 
-from hgkit import Emitter, Request
+from hgkit import Emitter, Request, State
 
-# Request fields Claude Code has no flag for; named in metadata.hg_ignored_fields.
-IGNORED = ("temperature", "top_p", "max_output_tokens", "max_tool_calls")
+CLI_VERSION = os.environ.get("HG_PACKAGE_VERSION", "").rsplit("-", 1)[0]   # the manifest's version is <CLI>-<revision>
+WORKSPACE = os.environ.get("HG_WORKSPACE", "/workspace")
+RAW_PREFIX = "claude-stream "
+# The tools the social manager may use, and nothing else. Bash is guarded by the PreToolUse hook in the seeds.
+TOOLS = "Read,Grep,Glob,Write,Edit,WebFetch,WebSearch,Bash"
+# Responses reasoning.effort -> Claude Code --effort (low, medium, high, xhigh, max); "none" turns thinking off.
+EFFORT = {"minimal": "low", "low": "low", "medium": "medium", "high": "high", "xhigh": "xhigh", "max": "max"}
+# Every variable Claude Code resolves a model alias or a background model from: all pinned to the request's model,
+# so the CLI never asks the provider for a model the request did not name.
+MODEL_ENV = ("ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+             "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_SMALL_FAST_MODEL",
+             "CLAUDE_CODE_SUBAGENT_MODEL", "CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL", "CLAUDE_CODE_AUTO_MODE_MODEL",
+             "CLAUDE_CODE_BG_CLASSIFIER_MODEL")
+PATCH_TOOLS = ("Write", "Edit", "MultiEdit")
+# The operator settings, with the same defaults as the manifest (the platform injects them as environment variables).
+SETTINGS = {
+    "BRAND_VOICE": "A friendly, plain-spoken B2B software company. It never boasts, never invents numbers, "
+                   "never disparages competitors or people.",
+    "HASHTAG_MAX": "5",
+    "TIMEZONE": "America/Chicago",
+}
+# Request fields Claude Code cannot honour, named in metadata.hg_ignored_fields when a request sets them.
+IGNORED = ("tool_choice", "parallel_tool_calls", "temperature", "top_p", "top_logprobs", "max_output_tokens",
+           "truncation", "include", "prompt_cache_key", "service_tier")
+# A PreToolUse hook for MCP servers narrowed by allowed_tools: denies a tool that is not on the list (argv[1]).
+GUARD = ("import json,sys; t=json.load(sys.stdin).get('tool_name',''); t in json.loads(sys.argv[1]) or print(json.dumps("
+         "{'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'permissionDecision': 'deny', "
+         "'permissionDecisionReason': t+' is not among the MCP tools this turn allows'}}))")
 
-SESSION_MISSING = re.compile(r"no conversation found", re.I)
-EXIT_CODE = re.compile(r"^Exit code (\d+)\n?")
 
-req, out = Request.load(), Emitter()
-
-
-def claude_bin() -> str:
-    found = shutil.which("claude")
-    if found:
-        return found
-    tools = os.environ.get("HG_TOOLS", "")
-    return os.path.join(tools, "bin", "claude") if tools else "claude"
+def _rel(path: str) -> str:
+    """A workspace path as the client sees it (relative to the workspace); anything else stays absolute."""
+    p = str(path or "")
+    root = WORKSPACE.rstrip("/") + "/"
+    return p[len(root):] if p.startswith(root) else p
 
 
-def build_env() -> dict:
+def _text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        out = []
+        for c in content:
+            if isinstance(c, dict):
+                if c.get("type") == "text":
+                    out.append(str(c.get("text", "")))
+                elif c.get("type") == "image":
+                    out.append("[image]")
+                elif c.get("type") == "tool_reference":
+                    out.append(f"[tool loaded: {c.get('tool_name', '')}]")
+        return "\n".join(out)
+    return "" if content is None else json.dumps(content, ensure_ascii=False)
+
+
+def _hunks(patch: Any) -> str:
+    """Claude Code's structuredPatch (a list of unified-diff hunks) as diff text."""
+    out = []
+    for h in patch if isinstance(patch, list) else []:
+        if isinstance(h, dict):
+            out.append(f"@@ -{h.get('oldStart', 0)},{h.get('oldLines', 0)} +{h.get('newStart', 0)},{h.get('newLines', 0)} @@")
+            out.extend(str(x) for x in h.get("lines") or [])
+    return "\n".join(out)
+
+
+def _mcp_name(server: str) -> str:
+    """How Claude Code normalizes an MCP server name into its tool names (mcp__<name>__<tool>)."""
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", server)
+
+
+class Mapper:
+    """Claude Code stream-json lines in, Responses events out (through the Emitter)."""
+
+    def __init__(self, out: Emitter, state: State | None = None, mcp_labels: list[str] | None = None):
+        self.out = out
+        self.state = state
+        self.labels = {_mcp_name(x): x for x in mcp_labels or []}
+        self.calls: dict[str, dict[str, Any]] = {}    # tool_use id -> {name, input, kind, handle}
+        self.streamed: set[str] = set()                # assistant message ids whose text arrived as deltas
+        self.thought: set[str] = set()                 # assistant message ids whose thinking arrived as deltas
+        self.current = ""                              # the message id the stream_events belong to
+        self.session_id = ""
+        self.result: dict[str, Any] | None = None
+        self.api_error = ""                            # the text of a synthetic API-error message, if any
+        self.init_seen = False
+
+    # ── input ──────────────────────────────────────────────────────────────────────────────────────────────────────
+    def line(self, raw: str) -> None:
+        s = raw.strip()
+        if not s:
+            return
+        try:
+            ev = json.loads(s)
+        except ValueError:
+            self.out.log(f"claude: {s}")
+            return
+        if isinstance(ev, dict):
+            try:
+                self.handle(ev)
+            except Exception as e:  # a CLI event this mapper does not expect must not lose the turn
+                self.out.log(f"run: could not map a {ev.get('type')} event: {type(e).__name__}: {e}")
+
+    def handle(self, ev: dict[str, Any]) -> None:
+        kind = ev.get("type")
+        sub = ev.get("parent_tool_use_id")             # set on a subagent's messages
+        if kind in ("user", "result", "assistant"):    # a whole message, a tool result or the end: nothing stays open
+            self.out.close()
+        if kind == "system" and ev.get("subtype") == "init":
+            self.init_seen = True
+            self._remember(ev.get("session_id"))
+        elif kind == "stream_event" and not sub:
+            self._stream(ev.get("event") or {})
+        elif kind == "assistant":
+            self._assistant(ev, bool(sub))
+        elif kind == "user":
+            content = (ev.get("message") or {}).get("content")
+            for block in content if isinstance(content, list) else []:
+                if isinstance(block, dict) and block.get("type") == "tool_result":
+                    self._tool_result(block, ev.get("tool_use_result"))
+        elif kind == "result":
+            self.result = ev
+            self._remember(ev.get("session_id"))
+
+    def _remember(self, sid: Any) -> None:
+        if isinstance(sid, str) and sid:
+            self.session_id = sid
+            if self.state is not None:
+                self.state.set("session", sid)
+
+    def _stream(self, e: dict[str, Any]) -> None:
+        t = e.get("type")
+        if t == "message_start":
+            self.current = str((e.get("message") or {}).get("id") or "")
+        elif t == "content_block_delta":
+            d = e.get("delta") or {}
+            if d.get("type") == "text_delta" and d.get("text"):
+                self.streamed.add(self.current)
+                self.out.say(d["text"])
+            elif d.get("type") == "thinking_delta" and d.get("thinking"):
+                self.thought.add(self.current)
+                self.out.think(d["thinking"])
+        elif t == "content_block_stop":
+            self.out.close()
+
+    def _assistant(self, ev: dict[str, Any], subagent: bool) -> None:
+        msg = ev.get("message") or {}
+        blocks = msg.get("content") if isinstance(msg.get("content"), list) else []
+        if ev.get("error") or msg.get("model") == "<synthetic>":
+            # The CLI's own message (an API error, "Prompt is too long", ...): kept for the failure message, not
+            # streamed as if the model had said it.
+            self.api_error = "\n".join(str(b.get("text", "")) for b in blocks if isinstance(b, dict)).strip()
+            return
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            bt = block.get("type")
+            if bt == "text" and not subagent:
+                if msg.get("id") not in self.streamed:          # not already streamed as deltas
+                    self.out.say(str(block.get("text") or ""))
+                    self.out.close()
+            elif bt == "thinking" and not subagent:
+                if msg.get("id") not in self.thought:
+                    self.out.think(str(block.get("thinking") or ""))
+                    self.out.close()
+            elif bt == "tool_use":
+                self._tool_use(block)
+
+    # ── tools ──────────────────────────────────────────────────────────────────────────────────────────────────────
+    def _tool_use(self, block: dict[str, Any]) -> None:
+        name = str(block.get("name") or "")
+        args = block.get("input") if isinstance(block.get("input"), dict) else {}
+        cid = str(block.get("id") or f"call_{len(self.calls) + 1}")
+        call: dict[str, Any] = {"name": name, "input": args}
+        self.calls[cid] = call
+        if name == "Bash":
+            timeout = args.get("timeout") if isinstance(args.get("timeout"), int) else None
+            call.update(kind="shell", handle=self.out.ran(str(args.get("command", "")), timeout_ms=timeout, call_id=cid))
+        elif name in PATCH_TOOLS:
+            call["kind"] = "patch"                                   # emitted with its result (create vs update)
+        elif name == "StructuredOutput":
+            call["kind"] = "structured"                              # becomes the final message (text.format)
+        elif name.startswith("mcp__"):
+            _, server, tool = (name.split("__", 2) + ["", ""])[:3]
+            call.update(kind="mcp", handle=self.out.called(self.labels.get(server, server), tool, args, call_id=cid))
+        else:
+            call.update(kind="function", handle=self.out.used(name, args, call_id=cid))
+
+    def _tool_result(self, block: dict[str, Any], tur: Any) -> None:
+        cid = str(block.get("tool_use_id") or "")
+        text = _text(block.get("content"))
+        error = bool(block.get("is_error"))
+        call = self.calls.pop(cid, None)
+        if call is None:                                             # a result for a call this turn never saw
+            self.out.used("unknown", {}, text, ok=not error, call_id=cid)
+            return
+        kind, args, tur = call["kind"], call["input"], tur if isinstance(tur, dict) else {}
+        if kind == "shell":
+            if "stdout" in tur or "stderr" in tur:
+                stdout, stderr = str(tur.get("stdout") or ""), str(tur.get("stderr") or "")
+            else:
+                stdout, stderr = ("", text) if error else (text, "")
+            m = re.match(r"Exit code (\d+)", text)
+            code = int(m.group(1)) if m else (1 if error else 0)
+            call["handle"].done(stdout, stderr, code, timed_out=bool(tur.get("interrupted")))
+        elif kind == "patch":
+            path = _rel(str(args.get("file_path") or tur.get("filePath") or ""))
+            if call["name"] == "Write" and tur.get("type") != "update":
+                self.out.wrote(path, str(args.get("content") or ""), ok=not error, output=text, call_id=cid)
+            else:
+                diff = _hunks(tur.get("structuredPatch"))
+                if not diff:
+                    edits = args.get("edits") if isinstance(args.get("edits"), list) else [args]
+                    diff = "\n".join(
+                        "@@\n" + "\n".join("-" + x for x in str(e.get("old_string", "")).split("\n")) + "\n" +
+                        "\n".join("+" + x for x in str(e.get("new_string", e.get("content", ""))).split("\n"))
+                        for e in edits if isinstance(e, dict))
+                self.out.edited(path, diff, ok=not error, output=text, call_id=cid)
+        elif kind in ("mcp", "function"):
+            call["handle"].failed(text) if error else call["handle"].done(text)
+
+    # ── the end ────────────────────────────────────────────────────────────────────────────────────────────────────
+    def usage(self) -> dict[str, Any] | None:
+        u = (self.result or {}).get("usage")
+        if not isinstance(u, dict):
+            return None
+        cached = int(u.get("cache_read_input_tokens") or 0)
+        written = int(u.get("cache_creation_input_tokens") or 0)
+        # Anthropic's input_tokens leaves out cache reads and writes; OpenAI's includes them.
+        return Emitter.usage(input=int(u.get("input_tokens") or 0) + cached + written,
+                             output=int(u.get("output_tokens") or 0), cached=cached, cache_write=written)
+
+    def finish(self, exit_code: int | None = None, stderr: str = "") -> None:
+        """The terminal event, from the CLI's result (or its absence)."""
+        self.out.close()
+        for call in self.calls.values():                 # calls that never got a result (interrupted)
+            if call["kind"] == "mcp":
+                call["handle"].cancelled()
+        self.calls.clear()
+        r = self.result
+        if r is None:
+            tail = (self.api_error or stderr.strip() or "no output")[-1500:]
+            self.out.failed("cli_error", f"claude exited {exit_code} without a result: {tail}")
+            return
+        if r.get("structured_output") is not None:
+            self.out.say(json.dumps(r["structured_output"], ensure_ascii=False))
+        usage = self.usage()
+        meta = {"claude_session_id": self.session_id, "claude_num_turns": str(r.get("num_turns", "")),
+                "claude_version": CLI_VERSION}
+        subtype = str(r.get("subtype") or "")
+        if subtype == "success" and not r.get("is_error"):
+            self.out.done(usage=usage, metadata=meta)
+        elif subtype == "error_max_turns":
+            # the CLI stopped at --max-turns (the request's max_tool_calls): what it did so far, marked incomplete
+            self.out.stopped("max_messages", usage=usage, metadata={**meta, "claude_stop": subtype})
+        else:
+            errors = r.get("errors") if isinstance(r.get("errors"), list) else []
+            message = str(r.get("result") or "").strip() or "; ".join(str(x) for x in errors) or self.api_error \
+                or f"claude ended with {subtype or 'an error'}"
+            self.out.failed(self._error_code(r, message), message[:4000], usage=usage, metadata=meta)
+
+    @staticmethod
+    def _error_code(r: dict[str, Any], message: str) -> str:
+        """An OpenAI error code when one fits; the provider's own status is in the result's api_error_status."""
+        status = r.get("api_error_status")
+        low = message.lower()
+        if "api error" in low or status:
+            if status in (401, 403) or "authentication" in low or ("invalid" in low and "api key" in low):
+                return "authentication_error"
+            if status == 429 or "rate limit" in low:
+                return "rate_limit_exceeded"
+            if isinstance(status, int) and status >= 500:
+                return "server_error"
+            return "provider_error"
+        return str(r.get("subtype") or "cli_error")
+
+
+# ── the request -> the CLI ─────────────────────────────────────────────────────────────────────────────────────────
+def ignored(req: Request) -> list[str]:
+    """The request fields this turn does not act on (only those the request sets)."""
+    fields = [f for f in IGNORED if req.get(f) is not None]
+    if any(isinstance(t, dict) and t.get("type") != "mcp" for t in req.get("tools") or []):
+        fields.append("tools")                          # Claude Code runs its own tools; only MCP servers are added
+    if ((req.get("text") or {}).get("format") or {}).get("type") == "json_object":
+        fields.append("text.format")                    # only json_schema has a CLI flag
+    for parent, child in (("reasoning", "summary"), ("text", "verbosity")):
+        if (req.get(parent) or {}).get(child) is not None:
+            fields.append(f"{parent}.{child}")
+    return fields
+
+
+def settings_block() -> str:
+    """The operator settings, for the system prompt: the agent always needs the brand's voice, hashtag cap and
+    timezone, so they are appended even when the request sends no instructions."""
+    lines = ["The operator settings for this brand (environment variables; the defaults above apply when unset):"]
+    for name in SETTINGS:
+        lines.append(f"- {name}: {os.environ.get(name) or SETTINGS[name]}")
+    return "\n".join(lines)
+
+
+def metadata_lines(req: Request) -> str:
+    """The campaign slug and platform list from request metadata, so the agent honors them even when the prose
+    prompt omits them."""
+    meta = req.get("metadata")
+    if not isinstance(meta, dict):
+        return ""
+    lines = []
+    slug = meta.get("campaign")
+    if isinstance(slug, str) and slug.strip():
+        lines.append(f"Campaign slug: {slug.strip()}")
+    platforms = meta.get("platforms")
+    if isinstance(platforms, list):
+        lines.append("Platforms to post on: " + ", ".join(str(p) for p in platforms if p))
+    return "\n".join(lines)
+
+
+def mcp_config(servers: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The turn's MCP servers ($HG_MCP) as Claude Code's --mcp-config; header values are the platform's placeholders."""
+    entries: dict[str, Any] = {}
+    for s in servers:
+        entry: dict[str, Any] = {"type": s.get("transport") or "http", "url": s["url"]}
+        if s.get("headers"):
+            entry["headers"] = s["headers"]
+        entries[s["label"]] = entry
+    return {"mcpServers": entries} if entries else None
+
+
+def mcp_guard(servers: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """allowed_tools as settings for --settings: a PreToolUse hook on the narrowed servers' tools that refuses any tool
+    not on their lists (Claude Code has no per-server tool filter; the tools stay visible, their calls are refused)."""
+    narrowed = [s for s in servers if s.get("allowed_tools") is not None]
+    if not narrowed:
+        return None
+    allowed = [f"mcp__{_mcp_name(s['label'])}__{_mcp_name(t)}" for s in narrowed for t in s["allowed_tools"]]
+    matcher = "^mcp__(?:" + "|".join(_mcp_name(s["label"]) for s in narrowed) + ")__"
+    hook = {"type": "command", "command": f"python3 -c {shlex.quote(GUARD)} {shlex.quote(json.dumps(allowed))}"}
+    return {"hooks": {"PreToolUse": [{"matcher": matcher, "hooks": [hook]}]}}
+
+
+def command(req: Request, servers: list[dict[str, Any]], resume: str = "", tmp: str = "") -> list[str]:
+    tmp = tmp or str(Path(tempfile.gettempdir(), "hg-claude"))   # the sandbox's own tmpfs
+    model = os.environ.get("HG_MODEL", "")
+    argv = ["claude", "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
+            "--dangerously-skip-permissions", "--system-prompt-snapshot", "off", "--tools", TOOLS]
+    if model:
+        argv += ["--model", model]
+    if resume:
+        argv += ["--resume", resume]
+    Path(tmp).mkdir(mode=0o700, parents=True, exist_ok=True)
+    extra = req.instructions or ""
+    block = settings_block()
+    if extra or block:
+        f = Path(tmp, "instructions.md")
+        f.write_text((extra + "\n\n" + block).strip() if extra else block)
+        argv += ["--append-system-prompt-file", str(f)]
+    effort = EFFORT.get(req.reasoning_effort)
+    if effort:
+        argv += ["--effort", effort]
+    fmt = req.text_format or {}
+    if fmt.get("type") == "json_schema" and isinstance(fmt.get("schema"), dict):
+        argv += ["--json-schema", json.dumps(fmt["schema"], separators=(",", ":"))]
+    mcp = mcp_config(servers)
+    if mcp:
+        f = Path(tmp, "mcp.json")
+        f.write_text(json.dumps(mcp))
+        argv += ["--mcp-config", str(f), "--strict-mcp-config"]
+    guard = mcp_guard(servers)
+    if guard:
+        argv += ["--settings", json.dumps(guard)]
+    max_calls = req.get("max_tool_calls")
+    if isinstance(max_calls, int) and max_calls > 0:
+        argv += ["--max-turns", str(max_calls)]
+    return argv
+
+
+def environment(req: Request) -> dict[str, str]:
     env = dict(os.environ)
-    model = req.model or "deepseek-v4-pro"
-    if req.provider:
-        env["ANTHROPIC_BASE_URL"] = req.provider.url            # the door, without /v1
-        env["ANTHROPIC_API_KEY"] = req.provider.token
-        env["ANTHROPIC_AUTH_TOKEN"] = req.provider.token
-    # Pin every model alias Claude Code may pick to the turn's model, so nothing leaves for a model the provider
-    # does not serve (background tasks, subagents, classifiers all resolve here too).
-    for name in ("ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
-                 "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_SMALL_FAST_MODEL",
-                 "CLAUDE_CODE_AUTO_MODE_MODEL", "CLAUDE_CODE_BG_CLASSIFIER_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
-                 "CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL"):
-        env[name] = model
-    # Headless: no telemetry, no update checks, no error reporting, no bug-command egress.
-    env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
-    env["DISABLE_TELEMETRY"] = "1"
-    env["DISABLE_AUTOUPDATER"] = "1"
-    env["DISABLE_ERROR_REPORTING"] = "1"
-    env["DISABLE_BUG_COMMAND"] = "1"
-    env["CLAUDE_CODE_ENTRYPOINT"] = "sdk-cli"
-    env["CLAUDE_CODE_MAX_RETRIES"] = "3"
+    model = env.get("HG_MODEL", "")
+    env.pop("ANTHROPIC_AUTH_TOKEN", None)
+    env.update({"ANTHROPIC_BASE_URL": env.get("HG_PROVIDER_URL", ""), "ANTHROPIC_API_KEY": env.get("HG_PROVIDER_TOKEN", ""),
+                "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "DISABLE_AUTOUPDATER": "1", "DISABLE_TELEMETRY": "1",
+                "DISABLE_ERROR_REPORTING": "1", "DISABLE_BUG_COMMAND": "1", "IS_SANDBOX": "1",
+                "CLAUDE_CODE_MAX_RETRIES": env.get("CLAUDE_CODE_MAX_RETRIES", "3")})
+    if model:
+        env.update({k: model for k in MODEL_ENV})
+    if req.reasoning_effort == "none":
+        env["CLAUDE_CODE_DISABLE_THINKING"] = "1"
     return env
 
 
-def base_args() -> list:
-    args = [claude_bin(), "-p", "--output-format", "stream-json", "--verbose",
-            "--include-partial-messages", "--system-prompt-snapshot", "off",
-            "--dangerously-skip-permissions", "--model", req.model]
-    if req.instructions:
-        args += ["--append-system-prompt", req.instructions]
-    effort = req.reasoning_effort
-    if effort:
-        args += ["--effort", effort]
-    fmt = req.text_format
-    if fmt and fmt.get("type") == "json_schema" and fmt.get("schema"):
-        args += ["--json-schema", json.dumps(fmt["schema"], ensure_ascii=False)]
-    if req.get("store") is False:
-        args += ["--no-session-persistence"]
-    return args
+# ── running the CLI ────────────────────────────────────────────────────────────────────────────────────────────────
+def _run(argv: list[str], env: dict[str, str], prompt: str, mapper: Mapper) -> tuple[int, str]:
+    proc = subprocess.Popen(argv, env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, encoding="utf-8", errors="replace", bufsize=1)
+    tail: list[str] = []
 
+    def drain() -> None:
+        for chunk in proc.stderr:  # type: ignore[union-attr]
+            sys.stderr.write(chunk)
+            sys.stderr.flush()
+            tail.append(chunk)
+            del tail[:-50]
 
-def prompt_text() -> str:
-    names = req.place_inputs()
-    text = req.prompt
-    if names:
-        text = (text + "\n\nFiles you were given, in the workspace: " + ", ".join(names)).strip()
-    meta = req.get("metadata")
-    if isinstance(meta, dict):
-        bits = []
-        for key, value in meta.items():
-            if isinstance(value, list):
-                value = ", ".join(str(v) for v in value)
-            elif not isinstance(value, (str, int, float, bool)):
-                continue
-            bits.append(f"{key}={value}")
-        if bits:
-            text = (text + "\n\nRequest metadata: " + "; ".join(bits)).strip()
-    return text
-
-
-class Stream:
-    """One CLI stream, mapped to Responses events as it is read."""
-
-    def __init__(self) -> None:
-        self.session_id = ""
-        self.last_text = ""        # assistant text emitted so far, for partial-message dedup
-        self.last_think = ""       # reasoning emitted so far
-        self.pending: dict = {}    # tool_use_id -> {"name", "input", "handle"?}
-        self.result: dict | None = None
-
-    def _delta(self, kind: str, text: str) -> None:
-        if not text:
-            return
-        last = self.last_think if kind == "think" else self.last_text
-        if last and text.startswith(last):
-            chunk = text[len(last):]
-            if kind == "think":
-                self.last_think = text
-            else:
-                self.last_text = text
-            if chunk:
-                (out.think if kind == "think" else out.say)(chunk)
-        else:
-            if kind == "think":
-                self.last_think = text
-            else:
-                self.last_text = text
-            (out.think if kind == "think" else out.say)(text)
-
-    def line(self, raw: str) -> None:
+    t = threading.Thread(target=drain, daemon=True)
+    t.start()
+    with contextlib.suppress(BrokenPipeError):
+        proc.stdin.write(prompt)  # type: ignore[union-attr]
+        proc.stdin.close()  # type: ignore[union-attr]
+    for raw in proc.stdout:  # type: ignore[union-attr]
         line = raw.rstrip("\n")
-        try:
-            ev = json.loads(line)
-        except ValueError:
-            out.log("claude: " + line)
-            return
-        typ = ev.get("type")
-        sub = ev.get("subtype")
-        if typ == "system":
-            if sub == "init":
-                self.session_id = ev.get("session_id", "")
-                if self.session_id:
-                    req.state.set("session", self.session_id)     # saved the moment the CLI reports it
-            out.log("claude: " + line)                            # init / thinking_tokens / task_* are bookkeeping
-            return
-        if typ == "assistant":
-            for part in ev.get("message", {}).get("content") or []:
-                pt = part.get("type")
-                if pt == "thinking":
-                    self._delta("think", part.get("thinking", ""))
-                elif pt == "text":
-                    self._delta("say", part.get("text", ""))
-                elif pt == "tool_use":
-                    cid = part.get("id", "")
-                    name = part.get("name", "")
-                    inp = part.get("input") or {}
-                    if name == "Bash":
-                        handle = out.ran(inp.get("command", ""), call_id=cid)
-                        self.pending[cid] = {"name": name, "input": inp, "handle": handle}
-                    else:
-                        self.pending[cid] = {"name": name, "input": inp}
-            return
-        if typ == "user":
-            # Tool results close the streamed message and start a fresh one after.
-            self.last_text = self.last_think = ""
-            for part in ev.get("message", {}).get("content") or []:
-                if part.get("type") != "tool_result":
-                    continue
-                self.tool_result(part)
-            return
-        if typ == "result":
-            self.result = ev
-            final = ev.get("result")
-            if isinstance(final, str) and final and not ev.get("is_error"):
-                self._delta("say", final)                        # reconcile any text the stream missed
-            return
-        out.log("claude: " + line)
-
-    def tool_result(self, part: dict) -> None:
-        cid = part.get("tool_use_id", "")
-        content = part.get("content")
-        is_error = bool(part.get("is_error"))
-        entry = self.pending.pop(cid, None)
-        if entry is None:
-            out.log("claude: tool_result with no tool_use " + cid)
-            return
-        name, inp = entry["name"], entry["input"]
-        text = content if isinstance(content, str) else str(content or "")
-        if name == "Bash":
-            stdout, stderr, code = parse_bash(text, is_error)
-            entry["handle"].done(stdout=stdout, stderr=stderr, exit=code)
-        elif name == "Write":
-            out.wrote(inp.get("file_path", ""), inp.get("content", ""), ok=not is_error, output=text,
-                      call_id=cid)
-        elif name == "Edit":
-            out.edited(inp.get("file_path", ""), old=inp.get("old_string", "") or "",
-                       new=inp.get("new_string", "") or "", ok=not is_error, output=text, call_id=cid)
-        else:
-            out.used(name, inp, text, ok=not is_error, call_id=cid)
+        if line.strip():
+            mapper.out.log(RAW_PREFIX + line)
+            mapper.line(line)
+    code = proc.wait()
+    t.join(5)
+    return code, "".join(tail)
 
 
-def parse_bash(text: str, is_error: bool) -> tuple:
-    m = EXIT_CODE.match(text)
-    if m:
-        return text[m.end():], "", int(m.group(1))
-    if is_error:
-        return "", text, 1
-    return text, "", 0
+def with_history(req: Request, prompt: str) -> str:
+    """The earlier conversation as context, for a turn the CLI's own session does not cover (a fresh CLI session
+    after a fork onto this harness, or a session the CLI lost)."""
+    transcript = req.transcript()
+    if not transcript:
+        return prompt
+    return ("Earlier in this conversation, before this turn (the platform's record; continue from it):\n\n"
+            f"{transcript}\n\n---\n\n{prompt}")
 
 
-def usage(result: dict) -> dict:
-    u = result.get("usage") or {}
-    if u.get("input_tokens") is not None:
-        return {
-            "input": u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0)
-            + u.get("cache_creation_input_tokens", 0),
-            "output": u.get("output_tokens", 0),
-            "cached": u.get("cache_read_input_tokens", 0),
-            "cache_write": u.get("cache_creation_input_tokens", 0),
-            "reasoning": (u.get("output_tokens_details") or {}).get("thinking_tokens", 0),
-        }
-    inp = output = cached = cache_write = reasoning = 0
-    for v in (result.get("modelUsage") or {}).values():
-        inp += v.get("inputTokens", 0) + v.get("cacheReadInputTokens", 0) + v.get("cacheCreationInputTokens", 0)
-        output += v.get("outputTokens", 0)
-        cached += v.get("cacheReadInputTokens", 0)
-        cache_write += v.get("cacheCreationInputTokens", 0)
-        reasoning += v.get("thinkingTokens", 0)
-    return {"input": inp, "output": output, "cached": cached, "cache_write": cache_write, "reasoning": reasoning}
-
-
-def error_code(result: dict) -> str:
-    status = result.get("api_error_status")
-    if status == 401:
-        return "invalid_api_key"
-    if status == 429:
-        return "rate_limit_exceeded"
-    if status and status >= 500:
-        return "server_error"
-    if status == 400:
-        return "invalid_prompt"
-    return "cli_error"
-
-
-def message_of(result: dict) -> str:
-    errors = result.get("errors")
-    if isinstance(errors, list) and errors:
-        return "; ".join(str(e) for e in errors)
-    msg = result.get("result")
-    return msg if isinstance(msg, str) and msg else "Claude Code reported an error"
-
-
-def finish(stream: Stream, interrupted: bool, exit_code: int) -> None:
-    res = stream.result
-    meta = {"exit_code": str(exit_code)}
-    if stream.session_id:
-        meta["cli_session"] = stream.session_id
-    if res is not None:
-        if res.get("is_error"):
-            out.failed(error_code(res), message_of(res), metadata=meta, **usage(res))
-        elif res.get("stop_reason") == "max_tokens":
-            out.stopped("max_output_tokens", metadata=meta, **usage(res))
-        else:
-            out.done(metadata=meta, **usage(res))
-    elif interrupted:
-        out.failed("interrupted", "the turn was interrupted before Claude Code finished", metadata=meta)
-    else:
-        out.failed("cli_error", "Claude Code exited without a result", metadata=meta)
-
-
-def run_cli(prompt: str, resume: str) -> tuple:
-    """Run one CLI invocation, streaming its events. Returns (stream, exit_code)."""
-    args = base_args()
-    if resume:
-        args += ["--resume", resume]
-    args += [prompt]
-    stream = Stream()
-    proc = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            text=True, bufsize=1, env=build_env(), start_new_session=True)
-    errs: list[str] = []
-    interrupted = {"yes": False}
-
-    def drain_stderr() -> None:
-        for line in proc.stderr:
-            errs.append(line.rstrip("\n"))
-
-    def on_signal(signum, frame):
-        interrupted["yes"] = True
-        if proc.poll() is None:
-            try:
-                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-            except (ProcessLookupError, PermissionError, OSError):
-                proc.terminate()
-
-    threading.Thread(target=drain_stderr, daemon=True).start()
-    old_term, old_int = signal.signal(signal.SIGTERM, on_signal), signal.signal(signal.SIGINT, on_signal)
+def run(out: Emitter) -> None:
+    req = Request.load()
+    state = req.state
+    out.ignored(ignored(req))
     try:
-        for raw in proc.stdout:
-            stream.line(raw)
-        code = proc.wait()
-    finally:
-        signal.signal(signal.SIGTERM, old_term)
-        signal.signal(signal.SIGINT, old_int)
-    for e in errs:
-        out.log("claude stderr: " + e)
-    return stream, code, interrupted["yes"]
+        files = req.place_inputs()
+    except OSError as e:
+        out.failed("invalid_input_file", f"an input file could not be saved into the workspace: {e}")
+        return
+    prompt = req.prompt
+    if files:
+        prompt = (prompt + "\n\n" if prompt else "") + "Attached files (saved in the working directory): " + \
+            ", ".join(files)
+    meta = metadata_lines(req)
+    if meta:
+        prompt = (meta + "\n\n" + prompt) if prompt else meta
+    if not prompt:
+        out.failed("invalid_prompt", "the request has no input text or files")
+        return
+    servers = req.mcp_servers()
+    labels = [s["label"] for s in servers]
+    env = environment(req)
+    resume = state.get("session")
+    mapper = Mapper(out, state, labels)
+    code, stderr = _run(command(req, servers, resume=resume), env, prompt if resume else with_history(req, prompt), mapper)
+    said = stderr + mapper.api_error + json.dumps((mapper.result or {}).get("errors") or [])
+    if resume and not mapper.init_seen and "No conversation found" in said:
+        out.log(f"the CLI session {resume} is gone; starting a new one from the session's history")
+        state.set("session", "")
+        mapper = Mapper(out, state, labels)
+        code, stderr = _run(command(req, servers), env, with_history(req, prompt), mapper)
+    mapper.finish(code, stderr)
 
 
 def main() -> None:
-    ignored = [f for f in IGNORED if req.get(f) is not None]
-    if req.get("store") is False:
-        ignored.append("store")
-    out.ignored(ignored)
-
-    prompt = prompt_text()
-    history_text = req.transcript()
-    session_id = req.state.get("session")
-
-    if not prompt and not session_id and not history_text:
-        out.failed("invalid_prompt", "the input text is the request to work on")
-        return
-
-    stream = code = interrupted = None
-    if session_id:
-        stream, code, interrupted = run_cli(prompt or "(continue)", session_id)
-        res = stream.result
-        if res is not None and res.get("is_error") and (
-                SESSION_MISSING.search(message_of(res)) or res.get("subtype") == "error_during_execution"):
-            session_id = ""                       # the CLI refused the saved id: fall through to the history
-        else:
-            finish(stream, interrupted, code)
-            return
-
-    # Fresh session: give it the conversation from the history, when there is one.
-    if history_text:
-        prompt = "[Earlier in this conversation]\n" + history_text + "\n\n[The latest request]\n" + (prompt or "(continue)")
-    stream, code, interrupted = run_cli(prompt or "(continue)", "")
-    finish(stream, interrupted, code)
+    out = Emitter()
+    try:
+        run(out)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        if not out.ended:
+            out.failed("harness_error", f"the social-claude-code package failed: {type(e).__name__}: {e}")
 
 
 if __name__ == "__main__":
