@@ -250,6 +250,22 @@ def ask_row(conn: sqlite3.Connection, ask_id: int) -> dict[str, Any]:
     return r
 
 
+WATCHING: set[str] = set()
+
+
+def watch(row_id: int, response_id: str) -> None:
+    """The agent's steps, live: a stream watcher per running turn writes them as they finish."""
+    if response_id in WATCHING:
+        return
+    WATCHING.add(response_id)
+
+    def on_items(items: list[dict[str, Any]]) -> None:
+        with db() as conn:
+            conn.execute("UPDATE asks SET steps = ? WHERE id = ? AND status IN ('queued', 'in_progress')",
+                         (json.dumps(hg.steps({"output": items})), row_id))
+    hg.watch(response_id, on_items)
+
+
 def follow() -> None:
     """A thread: every unfinished question's response, polled until it ends; its answer and drafts stored then."""
     while True:
@@ -262,8 +278,9 @@ def follow() -> None:
                 continue
             steps = hg.steps(r)
             if r["status"] not in FINAL:
+                watch(a["id"], a["response_id"])
                 with db() as conn:
-                    conn.execute("UPDATE asks SET status = ?, steps = ? WHERE id = ?", (r["status"], json.dumps(steps), a["id"]))
+                    conn.execute("UPDATE asks SET status = ? WHERE id = ?", (r["status"], a["id"]))
                 continue
             answer = final_message(r)
             answer, draft_ids, note = extract_drafts(answer, r["id"], a["chat"])

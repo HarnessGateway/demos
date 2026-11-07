@@ -10,6 +10,8 @@ the platform's limit), set its time, ask the agent to revise one post or the who
 calendar. **Nothing is posted anywhere**: the agent's package forbids every social platform's API, and the calendar
 is this demo's stand-in for a scheduler.
 
+[`demo.mp4`](demo.mp4) is the studio in use, recorded live: the brand, a campaign from an example, the agent drafting it, the four posts and the strategy, approval, and the posts on the calendar. The minutes the agent spends working are shown at 14x speed and labelled; nothing else is cut.
+
 ```bash
 python3 server.py            # http://127.0.0.1:8920 ; HG_API, HG_KEY, HG_MODEL from ./.env (scripts/setup.py)
 ```

@@ -8,6 +8,8 @@ overdue follow-ups", "Plan a route for home consults with the six closest leads"
 arithmetic in its sandbox and answers. When the answer means reaching customers, it drafts the emails and texts, and
 the CRM puts them in the **Outbox**. Nothing leaves until a person presses Send.
 
+[`demo.mp4`](demo.mp4) is this app in use, recorded live: the list and the map, a question to the agent with its commands appearing as it works, the drafts it put in the Outbox, one approved and logged on the customer. The minute the agent spends working is shown at 6x speed and labelled; nothing else is cut.
+
 ```bash
 python3 server.py            # http://127.0.0.1:8900 ; HG_API, HG_KEY, HG_MODEL from ./.env (scripts/setup.py)
 ```
@@ -22,7 +24,7 @@ over.
 |---|---|
 | ✨ Ask, with the question and a snapshot of the CRM | a **background** Responses request from the CRM's server with a run-only key; the snapshot goes with it as an `input_file` named `customers.json` (every customer, distance from the store, every activity) |
 | Follow-up questions in the same chat | `previous_response_id`: the same **session**, so the agent's scratch work and Codex's memory carry over; each question still carries a fresh snapshot |
-| The agent's steps while it works | the response's `shell_call` items, polled every few seconds |
+| The agent's steps while it works | the turn's events, streamed while it runs (`GET /v1/responses/{id}?stream=true`); its final state is read when it ends |
 | Drafts land in the Outbox | the agent ends its answer with one fenced `crm-drafts` block of JSON (`contact_id`, `channel`, `subject`, `body`); the package's standing instructions define it, the CRM parses it |
 | Send | the CRM's own step: SMTP or Twilio when configured, otherwise the message is approved and logged on the customer |
 

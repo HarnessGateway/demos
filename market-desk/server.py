@@ -244,6 +244,22 @@ def collect(run: dict[str, Any], r: dict[str, Any]) -> None:
         log(conn, run["story_id"], "agent", {"review": "filed the draft", "failed": f"could not file: {error}"}.get(status, status))
 
 
+WATCHING: set[str] = set()
+
+
+def watch(row_id: int, response_id: str) -> None:
+    """The agent's steps, live: a stream watcher per running turn writes them as they finish."""
+    if response_id in WATCHING:
+        return
+    WATCHING.add(response_id)
+
+    def on_items(items: list[dict[str, Any]]) -> None:
+        with db() as conn:
+            conn.execute("UPDATE runs SET steps = ? WHERE id = ? AND status IN ('queued', 'in_progress')",
+                         (json.dumps(hg.steps({"output": items})), row_id))
+    hg.watch(response_id, on_items)
+
+
 def follow() -> None:
     while True:
         with db() as conn:
@@ -254,9 +270,9 @@ def follow() -> None:
                 if r["status"] in FINAL:
                     collect(run, r)
                 else:
+                    watch(run["id"], run["response_id"])
                     with db() as conn:
-                        conn.execute("UPDATE runs SET status = ?, steps = ? WHERE id = ?",
-                                     (r["status"], json.dumps(hg.steps(r)), run["id"]))
+                        conn.execute("UPDATE runs SET status = ? WHERE id = ?", (r["status"], run["id"]))
             except Exception as e:                       # the platform is down or the story vanished: next round
                 print(f"follow run {run['id']}: {e}", flush=True)
         time.sleep(3)
@@ -350,6 +366,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(assign(str(b.get("desk")), str(b.get("kind")), str(b.get("title") or ""), str(b.get("brief") or "")))
         if len(p) == 4 and p[:2] == ["api", "stories"] and p[3] == "revise":
             return self.json(revise(int(p[2]), str(b.get("note") or "")))
+        if len(p) == 4 and p[:2] == ["api", "stories"] and p[3] == "retry":
+            with db() as conn:
+                s = story(conn, int(p[2]))
+                if s["status"] != "failed":
+                    raise RuntimeError("only a story the agent could not file is tried again")
+                start_run(conn, s["id"], "draft", prompt_for(s["desk"], s["kind"], s["brief"]), "", None, s["desk"], s["kind"])
+                conn.execute("UPDATE stories SET status = 'drafting' WHERE id = ?", (s["id"],))
+                log(conn, s["id"], "editor", "tried again")
+                return self.json(story(conn, s["id"]))
         if len(p) == 4 and p[:2] == ["api", "stories"] and p[3] == "decide":
             decision = str(b.get("status"))
             if decision not in ("approved", "spiked", "review"):

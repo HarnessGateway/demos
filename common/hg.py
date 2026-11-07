@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -85,6 +86,33 @@ class HG:
 
     def response(self, rid: str) -> dict[str, Any]:
         return self.call("GET", f"/responses/{rid}")
+
+    def watch(self, rid: str, on_items: Any) -> None:
+        """A thread that follows a running turn's events (GET with stream=true) and calls on_items(items) with every
+        output item finished so far, each time one finishes: what the page shows of the agent's work while it works.
+        The response's final state is still read with response(); this only shows progress."""
+        def follow() -> None:
+            items: list[dict[str, Any]] = []
+            req = urllib.request.Request(f"{self.api}/v1/responses/{rid}?stream=true",
+                                         headers={"authorization": f"Bearer {self.key}", "accept": "text/event-stream"})
+            try:
+                with urllib.request.urlopen(req, timeout=1800) as r:
+                    for raw in r:
+                        line = raw.decode(errors="replace").strip()
+                        if not line.startswith("data:"):
+                            continue
+                        try:
+                            ev = json.loads(line[5:])
+                        except json.JSONDecodeError:
+                            continue
+                        if ev.get("type") == "response.output_item.done":
+                            items.append(ev["item"])
+                            on_items(list(items))
+                        elif ev.get("type") in ("response.completed", "response.failed", "response.incomplete"):
+                            return
+            except Exception:
+                return                                        # progress only: the poller still settles the turn
+        threading.Thread(target=follow, daemon=True).start()
 
     def cancel(self, rid: str) -> dict[str, Any]:
         return self.call("POST", f"/responses/{rid}/cancel")

@@ -13,6 +13,10 @@ each package from a single request.
 | [`market-desk/`](market-desk/) | A commodities newsroom's desk: assignments, a release calendar, review by status | a journalist that reads the desk's primary sources and files a cited draft with charts, sources and the claims to verify | [`journalist-pi`](packages/journalist-pi/), pi, over the **Anthropic** API shape |
 | [`social/`](social/) | A social media calendar: campaigns, a post per platform, a two-week calendar | a social media manager that writes each platform's post, plans the sequence, tags links and cross-links the posts | [`social-claude-code`](packages/social-claude-code/), Claude Code, over the **Anthropic** API shape |
 
+Each app has a short recording of it in use, live: [`crm/demo.mp4`](crm/demo.mp4),
+[`market-desk/demo.mp4`](market-desk/demo.mp4) and [`social/demo.mp4`](social/demo.mp4). The minutes the agent spends
+working are sped up and labelled as such; nothing else is cut.
+
 In every one, **the person decides**: the CRM sends only what someone presses Send on, the desk approves only what an
 editor checked claim by claim, and the studio schedules only the posts someone approved. The agents draft.
 

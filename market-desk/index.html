@@ -363,6 +363,14 @@ function drawFoot() {
     foot.append(el("div", { className: "row" }, el("span", { className: "sub", textContent: s.status === "approved" ? "Approved. Publishing is outside this demo." : "Spiked." }), el("span", { className: "spacer" }), re));
     return;
   }
+  if (s.status === "failed" && !s.draft) {
+    const again = el("button", { className: "primary", textContent: "Try again" });
+    again.onclick = async () => { again.disabled = true; try { await api("POST", `/api/stories/${s.id}/retry`); openStory(s.id); load(); } catch (e) { alert(e.message); again.disabled = false; } };
+    const spike = el("button", { className: "danger", textContent: "Spike" });
+    spike.onclick = () => confirm("Spike this story?") && decide("spiked");
+    foot.append(el("div", { className: "row" }, el("span", { className: "sub", textContent: "The agent's run ended without a draft. Try again starts a fresh draft." }), el("span", { className: "spacer" }), spike, again));
+    return;
+  }
   const note = el("textarea", { placeholder: "Send it back with a note: what to change, add or check…", style: "min-height:56px" });
   const back = el("button", { textContent: "Send back to the agent" });
   back.onclick = async () => { back.disabled = true; try { open = await api("POST", `/api/stories/${s.id}/revise`, { note: note.value }); tab = "draft"; openStory(s.id); load(); } catch (e) { alert(e.message); back.disabled = false; } };

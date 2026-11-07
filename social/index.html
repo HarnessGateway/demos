@@ -63,7 +63,7 @@
   .calview .campaigns, .listview .cal, .listview .calhead { display: none; }
 
   .calhead { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
-  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
   .day { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-height: 150px; display: flex; flex-direction: column; gap: 5px; }
   .day.today { border-color: var(--accent); }
   .day .d { font-size: 12px; color: var(--muted); }
@@ -108,7 +108,7 @@
   .note { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
   .err { color: var(--danger); }
   @media (max-width: 760px) { .pipeline { grid-template-columns: repeat(3, 1fr); } .hide-sm { display: none; } header input { width: 100%; }
-    .cal { grid-template-columns: 1fr 1fr; } }
+    .cal { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>
 </head>
 <body class="listview">
@@ -346,7 +346,13 @@ function postCard(c, p) {
   const limit = META.platforms[p.platform]?.limit || 0;
   const text = el("textarea", { value: p.text });
   const count = el("span", { className: "count" });
-  const upd = () => { const n = [...text.value].length; count.textContent = `${n}${limit ? ` / ${limit}` : ""} characters`; count.classList.toggle("over", !!limit && n > limit); };
+  const linkCost = { x: 23, mastodon: 23 }[p.platform];
+  const upd = () => {
+    const counted = linkCost ? text.value.replace(/https?:\/\/\S+/g, "x".repeat(linkCost)) : text.value;
+    const n = [...counted].length;
+    count.textContent = `${n}${limit ? ` / ${limit}` : ""} characters${linkCost && /https?:\/\//.test(text.value) ? ` (links count as ${linkCost})` : ""}`;
+    count.classList.toggle("over", !!limit && n > limit);
+  };
   text.oninput = upd; upd();
   const at = el("input", { type: "datetime-local", value: p.at || "" });
   const save = el("button", { className: "small", textContent: "Save edits" });
@@ -417,6 +423,14 @@ function drawCamp() {
   }
   const foot = $("#cFoot"); foot.replaceChildren();
   if (busy(c)) { foot.append(el("div", { className: "sub", textContent: "The agent keeps working if you close this; the campaign updates when it finishes." })); return; }
+  if (c.status === "failed" && !c.posts.length) {
+    const again = el("button", { className: "primary", textContent: "Try again" });
+    again.onclick = async () => { again.disabled = true; try { await api("POST", `/api/campaigns/${c.id}/retry`); openCamp(c.id); } catch (e) { alert(e.message); again.disabled = false; } };
+    const del = el("button", { className: "danger", textContent: "Delete" });
+    del.onclick = async () => { if (confirm("Delete this campaign?")) { await api("DELETE", `/api/campaigns/${c.id}`); closePanels(); load(); } };
+    foot.append(el("div", { className: "row" }, el("span", { className: "sub", textContent: "The agent's run ended without a plan. Try again starts it fresh." }), el("span", { className: "spacer" }), del, again));
+    return;
+  }
   const note = el("textarea", { placeholder: "A note for the agent about the whole campaign: tone, timing, what to add or cut…", style: "min-height:52px" });
   const send = el("button", { textContent: "Send to the agent" });
   send.onclick = async () => { send.disabled = true; try { await api("POST", `/api/campaigns/${c.id}/revise`, { note: note.value }); openCamp(c.id); } catch (e) { alert(e.message); send.disabled = false; } };
