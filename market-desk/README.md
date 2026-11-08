@@ -8,7 +8,9 @@ harness package on HarnessGateway, the pi coding agent tailored to the desk. It 
 person must verify, and files it. The editor reads the draft, ticks off each claim, sends it back with a note or
 approves it. Nothing is published from here.
 
-[`demo.mp4`](demo.mp4) is this desk in use, recorded live: an assignment from the calendar, the agent reporting from EIA's data, the filed draft with its chart, claims ticked off, the sources, and approval. The minutes the agent spends working are shown at 12x speed and labelled; nothing else is cut.
+[![Market Desk in use: an assignment from the calendar, the agent reporting, the filed draft with its chart, claims verified, approval](demo.gif)](demo.mp4)
+
+The preview above plays at double speed; click it for [`demo.mp4`](demo.mp4), the full recording. It is this desk in use, recorded live: an assignment from the calendar, the agent reporting from EIA's data, the filed draft with its chart, claims ticked off, the sources, and approval. The minutes the agent spends working are shown at 12x speed and labelled; nothing else is cut.
 
 ```bash
 python3 server.py            # http://127.0.0.1:8910 ; HG_API, HG_KEY, HG_MODEL from ./.env (scripts/setup.py)

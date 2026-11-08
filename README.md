@@ -17,6 +17,12 @@ Each app has a short recording of it in use, live: [`crm/demo.mp4`](crm/demo.mp4
 [`market-desk/demo.mp4`](market-desk/demo.mp4) and [`social/demo.mp4`](social/demo.mp4). The minutes the agent spends
 working are sped up and labelled as such; nothing else is cut.
 
+| [Showroom CRM](crm/) | [Market Desk](market-desk/) | [Social Studio](social/) |
+|---|---|---|
+| [![The Showroom CRM in use](crm/demo.gif)](crm/demo.mp4) | [![Market Desk in use](market-desk/demo.gif)](market-desk/demo.mp4) | [![Social Studio in use](social/demo.gif)](social/demo.mp4) |
+
+The previews play at double speed; click one for the full recording.
+
 In every one, **the person decides**: the CRM sends only what someone presses Send on, the desk approves only what an
 editor checked claim by claim, and the studio schedules only the posts someone approved. The agents draft.
 

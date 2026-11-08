@@ -8,7 +8,9 @@ overdue follow-ups", "Plan a route for home consults with the six closest leads"
 arithmetic in its sandbox and answers. When the answer means reaching customers, it drafts the emails and texts, and
 the CRM puts them in the **Outbox**. Nothing leaves until a person presses Send.
 
-[`demo.mp4`](demo.mp4) is this app in use, recorded live: the list and the map, a question to the agent with its commands appearing as it works, the drafts it put in the Outbox, one approved and logged on the customer. The minute the agent spends working is shown at 6x speed and labelled; nothing else is cut.
+[![The Showroom CRM in use: a question to the sales agent, its drafts in the Outbox, one approved](demo.gif)](demo.mp4)
+
+The preview above plays at double speed; click it for [`demo.mp4`](demo.mp4), the full recording. It is this app in use, recorded live: the list and the map, a question to the agent with its commands appearing as it works, the drafts it put in the Outbox, one approved and logged on the customer. The minute the agent spends working is shown at 6x speed and labelled; nothing else is cut.
 
 ```bash
 python3 server.py            # http://127.0.0.1:8900 ; HG_API, HG_KEY, HG_MODEL from ./.env (scripts/setup.py)
