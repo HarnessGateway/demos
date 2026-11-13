@@ -1,3 +1,0 @@
-codex session: sess-error-0001
-codex: Reconnecting... 1/5 (high demand)
-{"type":"response.failed","response":{"error":{"code":"rate_limit_exceeded","message":"Rate limit exceeded."},"usage":null,"metadata":{"codex_version":"0.167.0"}}}

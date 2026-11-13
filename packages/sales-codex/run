@@ -1,302 +1,120 @@
 #!/usr/bin/env python3
-"""sales-codex run: one turn of the Showroom's CRM sales agent on Codex CLI.
+"""One turn of the Codex CLI (spec §8.4): start it headless, and say in Responses events what it does.
 
-Reads the request, (re)writes Codex's config and standing files each turn, runs
-`codex exec` (or `codex exec resume`) non-interactively, and maps its JSONL event
-stream onto Responses events.
+`codex exec --json` prints one JSON object per line: the thread's id, then each item as it finishes (a
+message, reasoning, a command, a file change, a tool call), then the turn's usage. It does not print text
+word by word; a message arrives whole.
 """
+
 import json
 import os
-import shutil
-import signal
-import subprocess
 import sys
-import threading
-from pathlib import Path
 
-from hgkit import Emitter, Request
+sys.path.insert(0, os.path.join(os.environ["HG_HARNESS"], "kit"))
 
-PROVIDER_NAME = "deepseek-openai"
-KEY_ENV = "HG_PROVIDER_TOKEN"
-CODEX_HOME = Path(os.environ.get("HOME", "/root")) / ".codex"
-PKG = Path(os.environ.get("HG_PACKAGE_DIR", ""))
-DEFAULT_MODEL = "deepseek-v4-pro"
+import hgkit  # noqa: E402 - the kit is found through the path set above
 
-DEFAULT_PROFILE = ("A family-owned home-improvement showroom selling kitchen and bath remodels, flooring, "
-                   "cabinets and countertops. Warm, plain-spoken, no pressure.")
-DEFAULT_SIGNATURE = "— The Showroom team"
-
-# Request fields this CLI cannot honour (named in the terminal event's metadata).
-IGNORED = ("reasoning", "text", "tools", "max_tool_calls", "max_output_tokens", "temperature", "top_p")
+CODEX = os.path.join(os.environ["HG_HARNESS"], "tools", "node_modules", ".bin", "codex")
 
 
-def config_toml(base_url: str) -> str:
-    url = base_url.rstrip("/")
-    return f'''model_provider = "{PROVIDER_NAME}"
-approval_policy = "never"
-sandbox_mode = "workspace-write"
-check_for_update_on_startup = false
-
-[model_providers.{PROVIDER_NAME}]
-name = "{PROVIDER_NAME}"
-base_url = "{url}/v1"
-env_key = "{KEY_ENV}"
-wire_api = "responses"
-
-[sandbox_workspace_write]
-network_access = true
-
-[analytics]
-enabled = false
-
-[features]
-plugins = false
-plugin_discovery_prefetch = false
-remote_plugin = false
-in_app_updates = false
-'''
+def command(session):
+    """Codex is told its provider on the command line. It reads the key from the variable named in env_key:
+    that variable holds a placeholder, and the platform's proxy puts the real key in on the way out."""
+    provider = ('{name="HarnessGateway",base_url=%s,env_key="HG_PROVIDER_KEY",wire_api="responses"}'
+                % json.dumps(os.environ["HG_PROVIDER_URL"]))
+    args = [CODEX, "exec"]
+    if session:
+        args += ["resume", session]
+    return [*args, "--json", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
+            "-c", "model_provider=hg", "-c", f"model_providers.hg={provider}", "-m", os.environ["HG_MODEL"], "-"]
 
 
-def assert_standing_files(out: Emitter) -> None:
-    """(Re)write the agent's standing files from the package's seeds so package upgrades take
-    effect even though .codex is persisted across sandboxes."""
-    CODEX_HOME.mkdir(parents=True, exist_ok=True)
-    rules = CODEX_HOME / "rules"
-    rules.mkdir(exist_ok=True)
-    seeds = PKG / "seeds" / "home" / ".codex"
-    for src, dst in ((seeds / "AGENTS.md", CODEX_HOME / "AGENTS.md"),
-                     (seeds / "rules" / "default.rules", rules / "default.rules")):
-        if src.is_file():
-            dst.write_text(src.read_text())
-        else:
-            out.log(f"missing seed file {src}; leaving {dst} as is")
+class Translator:
+    """Codex's lines in, Responses events out."""
 
-
-def codex_bin() -> str:
-    tools = os.environ.get("HG_TOOLS")
-    if tools:
-        p = Path(tools) / "bin" / "codex"
-        if p.is_file():
-            return str(p)
-    return shutil.which("codex") or "codex"
-
-
-def build_prompt(req: Request, placed: list[str], with_history: bool) -> str:
-    profile = os.environ.get("STORE_PROFILE") or DEFAULT_PROFILE
-    signature = os.environ.get("SIGNATURE") or DEFAULT_SIGNATURE
-    parts = [f"Store profile: {profile}", f"Signature for messages: {signature}"]
-    if placed:
-        parts.append("Input files in the working directory: " + ", ".join(placed))
-    parts.append(req.prompt)
-    if req.instructions:
-        parts.append(f"<instructions>\n{req.instructions}\n</instructions>")
-    if with_history:
-        hist = req.transcript(limit=60_000)
-        if hist:
-            parts.append(f"<conversation-so-far>\n{hist}\n</conversation-so-far>")
-    return "\n\n".join(p for p in parts if p.strip())
-
-
-class Mapper:
-    """Codex's JSONL event stream -> hgkit Responses events."""
-
-    def __init__(self, out: Emitter, state):
-        self.out = out
+    def __init__(self, emit, state):
+        self.emit = emit
         self.state = state
-        self.runs: dict[str, object] = {}
-        self.usage = None
-        self.failure = None  # (code, message) from codex's turn.failed
-        self.completed = False
-        self.lines = 0       # JSONL events seen (0 means the CLI never started a turn)
+        self.ended = False
+        self.error = None              # the last error it reported, for when it ends without a result
 
-    def handle(self, raw: str) -> None:
+    def read(self, line):
         try:
-            ev = json.loads(raw)
+            event = json.loads(line)
         except ValueError:
-            self.out.log(raw.strip())
-            return
-        self.lines += 1
-        t = ev.get("type")
-        item = ev.get("item") if isinstance(ev.get("item"), dict) else {}
-        if t == "thread.started":
-            tid = str(ev.get("thread_id") or "")
-            if tid:
-                self.state.set("session", tid)
-                self.out.log(f"codex session: {tid}")
-        elif t == "item.started":
-            if item.get("type") == "command_execution":
-                self.runs[item.get("id")] = self.out.ran(item.get("command") or "")
-        elif t == "item.completed":
-            self._completed(item)
-        elif t == "turn.completed":
-            u = ev.get("usage") or {}
-            self.usage = Emitter.usage(
-                input=int(u.get("input_tokens") or 0),
-                output=int(u.get("output_tokens") or 0),
-                cached=int(u.get("cached_input_tokens") or 0),
-                cache_write=int(u.get("cache_write_input_tokens") or 0),
-                reasoning=int(u.get("reasoning_output_tokens") or 0),
-            )
-            self.completed = True
-        elif t == "turn.failed":
-            err = ev.get("error") or {}
-            msg = str(err.get("message") or "the model turn failed")
-            low = msg.lower()
-            if "rate limit" in low or "too many" in low or "429" in low or "overloaded" in low:
-                code = "rate_limit_exceeded"
-            elif "api key" in low or "auth" in low or "401" in low or "403" in low:
-                code = "invalid_api_key"
-            else:
-                code = "server_error"
-            self.failure = (code, msg)
-        elif t == "error":
-            self.out.log("codex: " + str(ev.get("message") or ""))
-        elif t != "turn.started":
-            self.out.log(raw.strip())
+            return self.emit.log(line)
+        kind = event.get("type")
+        if kind == "thread.started" and event.get("thread_id"):
+            self.state.set("session", event["thread_id"])
+        elif kind == "item.completed":
+            self.item(event.get("item") or {})
+        elif kind == "turn.completed":
+            counted = event.get("usage") or {}
+            self.ended = True
+            self.emit.done({"input_tokens": counted.get("input_tokens", 0),
+                            "output_tokens": counted.get("output_tokens", 0),
+                            "input_tokens_details": {"cached_tokens": counted.get("cached_input_tokens", 0)},
+                            "output_tokens_details": {"reasoning_tokens": counted.get("reasoning_output_tokens", 0)}})
+        elif kind == "turn.failed":
+            self.ended = True
+            message = (event.get("error") or {}).get("message") or self.error or "Codex reported that the turn failed."
+            self.emit.failed("turn_failed", str(message)[:2000])
+        elif kind == "error":
+            self.error = str(event.get("message", ""))
+            self.emit.log(f"codex: {self.error}")
 
-    def _completed(self, item: dict) -> None:
-        it = item.get("type")
-        if it == "agent_message":
-            self.out.say(item.get("text") or "")
-        elif it == "reasoning":
-            self.out.think(item.get("text") or "")
-        elif it == "command_execution":
-            handle = self.runs.pop(item.get("id"), None)
-            cmd = item.get("command") or ""
-            exit_code = item.get("exit_code")
-            exit_val = exit_code if isinstance(exit_code, int) else (0 if item.get("status") == "completed" else 1)
-            stdout = item.get("aggregated_output") or ""
-            if handle is not None:
-                handle.done(stdout=stdout, exit=exit_val)
-            else:
-                self.out.ran(cmd, stdout=stdout, exit=exit_val)
-        elif it == "error":
-            self.out.log("codex: " + str(item.get("message") or ""))
-        else:
-            self.out.log(f"codex item {it}")
+    def item(self, item):
+        kind = item.get("type")
+        if kind == "agent_message":
+            self.emit.say(item.get("text", ""))
+        elif kind == "reasoning":
+            self.emit.think(item.get("text", ""))
+        elif kind == "command_execution":
+            code = item.get("exit_code")
+            self.emit.ran(item.get("command", ""), stdout=item.get("aggregated_output", ""),
+                          exit_code=code if isinstance(code, int) else 1)
+        elif kind == "file_change":
+            for change in item.get("changes") or []:
+                path, how = change.get("path", ""), change.get("kind")
+                if how == "add":
+                    self.emit.wrote(path)
+                elif how == "delete":
+                    self.emit.deleted(path)
+                else:
+                    self.emit.edited(path)
+        elif kind == "mcp_tool_call":
+            failed = (item.get("error") or {}).get("message") if item.get("error") else None
+            result = item.get("result")
+            self.emit.called(item.get("server", ""), item.get("tool", ""), item.get("arguments"),
+                             output=None if failed or result is None else json.dumps(result), error=failed)
+        elif kind == "web_search":
+            self.emit.used("web_search", item.get("query", ""))
+        elif kind == "error":
+            self.emit.log(f"codex: {item.get('message', '')}")       # a warning it shows as an item
 
 
-def run_turn(cmd: list[str], prompt: str, mapper: Mapper) -> tuple[int, str, bool]:
-    """Run codex once, mapping its stdout lines; returns (exit_code, stderr tail, killed)."""
-    env = os.environ.copy()
-    env["CODEX_HOME"] = str(CODEX_HOME)
-    workspace = os.environ.get("HG_WORKSPACE", "/workspace")
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                            text=True, cwd=workspace, env=env, start_new_session=True)
-    holder = {"killed": False}
-    stderr_lines: list[str] = []
-
-    def drain() -> None:
-        assert proc.stderr is not None
-        for line in proc.stderr:
-            stderr_lines.append(line.rstrip("\n"))
-            if len(stderr_lines) > 200:
-                del stderr_lines[0]
-
-    threading.Thread(target=drain, daemon=True).start()
-
-    def on_sigterm(signum, frame):  # noqa: ARG001
-        holder["killed"] = True
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        except OSError:
-            proc.terminate()
-
-    old = signal.signal(signal.SIGTERM, on_sigterm)
-    try:
-        try:
-            proc.stdin.write(prompt)
-            proc.stdin.close()
-        except (BrokenPipeError, OSError):
-            pass
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            mapper.handle(line)
-        proc.wait()
-    finally:
-        signal.signal(signal.SIGTERM, old)
-    return proc.returncode, "\n".join(stderr_lines[-40:]), holder["killed"]
+def turn(request, emit, state, session):
+    cli = hgkit.Cli(command(session), env={**os.environ, "CODEX_CA_CERTIFICATE": os.environ.get("SSL_CERT_FILE", "")},
+                    stdin=request.brief())
+    translator = Translator(emit, state)
+    for line in cli.lines():
+        if not translator.ended:
+            translator.read(line)
+    return translator, cli.exit_code
 
 
-def finish(out: Emitter, mapper: Mapper, rc: int, err: str, meta: dict[str, str], killed: bool) -> None:
-    if err:
-        out.log("codex stderr: " + err.replace("\n", " | ")[-2000:])
-    if mapper.completed:
-        out.done(usage=mapper.usage, metadata=meta)
-    elif mapper.failure is not None:
-        code, msg = mapper.failure
-        out.failed(code, msg[:4000], metadata=meta)
-    elif killed:
-        out.failed("cancelled", "the turn was interrupted", metadata=meta)
-    elif rc != 0:
-        out.failed("cli_error", f"codex exited {rc}: {err[-400:] or 'no output'}", metadata=meta)
-    else:
-        out.failed("cli_error", "codex ended without a completed turn", metadata=meta)
-
-
-def run(out: Emitter) -> None:
-    req = Request.load()
-    out.ignored([f for f in IGNORED if req.get(f) not in (None, "", [], {})])
-
-    if not req.prompt:
-        out.failed("invalid_prompt", "the input text is the CRM briefing and question")
-        return
-
-    provider = req.provider
-    if provider is None or not provider.url:
-        out.failed("invalid_prompt", "no provider is configured for this turn")
-        return
-
-    assert_standing_files(out)
-    CODEX_HOME.joinpath("config.toml").write_text(config_toml(provider.url))
-
-    try:
-        placed = req.place_inputs()
-    except OSError as e:
-        out.failed("invalid_input_file", f"an input file could not be saved into the workspace: {e}")
-        return
-
-    model = req.model or DEFAULT_MODEL
-    bin_ = codex_bin()
-    meta = {"codex_version": req.cli_version}
-    flags = ["--json", "--skip-git-repo-check", "-m", model]
-    if req.get("store") is False:
-        flags.append("--ephemeral")
-    workspace = os.environ.get("HG_WORKSPACE", "/workspace")
-    Path(workspace).mkdir(parents=True, exist_ok=True)
-
-    session_id = req.state.get("session")
-    if session_id:
-        mapper = Mapper(out, req.state)
-        rc, err, killed = run_turn([bin_, "exec", "resume", session_id, "-", *flags],
-                                   build_prompt(req, placed, with_history=False), mapper)
-        if rc != 0 and mapper.lines == 0 and "no rollout found" in err:
-            out.log(f"the codex session {session_id} is gone; starting a new one from the session's history")
-            req.state.set("session", "")
-            session_id = ""
-        else:
-            finish(out, mapper, rc, err, meta, killed)
-            return
-
-    # Fresh session: the first turn, a fork from another harness, or a lost thread.
-    mapper = Mapper(out, req.state)
-    rc, err, killed = run_turn([bin_, "exec", "-C", workspace, *flags, "-"],
-                               build_prompt(req, placed, with_history=True), mapper)
-    finish(out, mapper, rc, err, meta, killed)
-
-
-def main() -> None:
-    out = Emitter()
-    try:
-        run(out)
-    except FileNotFoundError as e:
-        if not out.ended:
-            out.failed("cli_error", f"cannot start codex: {e}")
-    except Exception as e:  # a package bug must not lose the turn silently
-        import traceback
-        traceback.print_exc()
-        if not out.ended:
-            out.failed("harness_error", f"the sales-codex package failed: {type(e).__name__}: {e}")
+def main():
+    request, emit, state = hgkit.Request(), hgkit.Emitter(), hgkit.State()
+    hgkit.seed_mind()
+    session = state.get("session")
+    translator, code = turn(request, emit, state, session)
+    if session and not translator.ended and code != 0:
+        # Its own record of the session is gone or unusable: start a new one.
+        emit.log(f"Codex could not resume session {session} (exit code {code}); starting a new one")
+        state.clear("session")
+        translator, code = turn(request, emit, state, None)
+    if not translator.ended:
+        emit.failed("cli_exit", translator.error or f"Codex exited with code {code} without a result.")
 
 
 if __name__ == "__main__":

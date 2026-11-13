@@ -1,9 +1,0 @@
-{"type":"session","version":3,"id":"01a1b4c3-4f92-a9d9-cd33-f2f17626433a","timestamp":"2026-11-07T06:53:00.000Z","cwd":"/workspace"}
-{"type":"agent_start"}
-{"type":"turn_start"}
-{"type":"message_start","message":{"role":"user","content":[{"type":"text","text":"Do the assignment."}],"timestamp":1794034380000}}
-{"type":"message_end","message":{"role":"user","content":[{"type":"text","text":"Do the assignment."}],"timestamp":1794034380000}}
-{"type":"message_start","message":{"role":"assistant","content":[],"api":"anthropic-messages","provider":"anthropic","model":"deepseek-v4-pro","usage":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":0,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":null,"timestamp":1794034380000,"responseId":null}}
-{"type":"message_end","message":{"role":"assistant","content":[],"api":"anthropic-messages","provider":"anthropic","model":"deepseek-v4-pro","usage":{"input":10,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":10,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"error","errorMessage":"401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}","timestamp":1794034381000,"responseId":null}}
-{"type":"turn_end","message":{"role":"assistant","content":[],"api":"anthropic-messages","provider":"anthropic","model":"deepseek-v4-pro","usage":{"input":10,"output":0,"cacheRead":0,"cacheWrite":0,"totalTokens":10,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"error","errorMessage":"401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}","timestamp":1794034381000,"responseId":null},"toolResults":[]}
-{"type":"agent_end","messages":[{"role":"user","content":[{"type":"text","text":"Do the assignment."}]}]}

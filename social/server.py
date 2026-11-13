@@ -34,7 +34,7 @@ sys.path.insert(0, str(HERE.parent / "common"))
 from hg import FINAL, HG, ApiError, dotenv  # noqa: E402
 
 DB_PATH = HERE / "social.db"
-DEFAULT_MODEL = "social-claude-code/deepseek-anthropic/deepseek-v4-pro"
+DEFAULT_MODEL = "web:social-claude-code/deepseek"
 PLATFORMS = {"x": ("X", 280), "linkedin": ("LinkedIn", 1300), "instagram": ("Instagram", 2200), "threads": ("Threads", 500),
              "bluesky": ("Bluesky", 300), "mastodon": ("Mastodon", 500), "facebook": ("Facebook", 2000)}
 PLAN_RE = re.compile(r"```social-plan[ \t]*\n(.*?)```", re.S)
@@ -142,7 +142,7 @@ def start_run(conn: sqlite3.Connection, c: dict[str, Any], kind: str, text: str,
     conn.execute("INSERT INTO runs (campaign_id, kind, note, response_id, status, created_at) VALUES (?,?,?,?,?,?)",
                  (c["id"], kind, note, turn["id"], turn["status"], time.time()))
     conn.execute("UPDATE campaigns SET session_id = ?, status = ?, updated_at = ? WHERE id = ?",
-                 (turn["metadata"].get("session_id", ""), "drafting" if kind == "plan" else "revising", time.time(), c["id"]))
+                 (hg.session(turn), "drafting" if kind == "plan" else "revising", time.time(), c["id"]))
 
 
 def create(b: dict[str, Any]) -> dict[str, Any]:
@@ -229,8 +229,7 @@ def collect(run: dict[str, Any], r: dict[str, Any]) -> None:
         c = campaign(conn, run["campaign_id"])
     strategy = ""
     if r["status"] == "completed" and c["session_id"]:
-        hg.settle(c["session_id"])
-        files = hg.folder(c["session_id"], f"/workspace/campaigns/{c['slug']}")
+        files = hg.folder(c["session_id"], f"campaigns/{c['slug']}")
         if not plan.get("posts"):
             try:
                 plan = json.loads(hg.read_text(c["session_id"], files, "plan.json") or "{}")

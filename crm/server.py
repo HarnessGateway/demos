@@ -41,7 +41,7 @@ sys.path.insert(0, str(HERE.parent / "common"))
 from hg import FINAL, HG, ApiError, dotenv  # noqa: E402
 
 DB_PATH = HERE / "crm.db"
-DEFAULT_MODEL = "sales-codex/deepseek-openai/deepseek-v4-pro"
+DEFAULT_MODEL = "sales-codex/deepseek"
 STAGES = ["Lead", "Contacted", "Qualified", "Proposal", "Won", "Lost"]
 SOURCES = ["Walk-in", "Website", "Referral", "Google Ads", "Facebook", "Home show", "Repeat customer", "Other"]
 CONTACT_FIELDS = ["name", "company", "email", "phone", "address", "stage", "value", "source", "tags", "next_follow_up",
@@ -237,7 +237,7 @@ def ask(question: str, chat: str, previous: str | None) -> dict[str, Any]:
                     metadata={"app": "crm", "chat": chat}, files={"customers.json": ("application/json", snapshot())})
     with db() as conn:
         cur = conn.execute("INSERT INTO asks (chat, question, response_id, session_id, status, created_at) VALUES (?,?,?,?,?,?)",
-                           (chat, question, turn["id"], turn["metadata"].get("session_id", ""), turn["status"], time.time()))
+                           (chat, question, turn["id"], hg.session(turn), turn["status"], time.time()))
         return ask_row(conn, cur.lastrowid)
 
 

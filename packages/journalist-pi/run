@@ -1,267 +1,133 @@
 #!/usr/bin/env python3
-"""journalist-pi: one turn of the pi coding agent as the newsroom's market-desk journalist.
+"""One turn of pi (spec §8.4): start it headless, and say in Responses events what it does.
 
-The request becomes pi's prompt; pi's JSON-mode events become Responses events. pi runs headless against the
-platform's provider (Anthropic shape), with the provider's base URL and model written into ~/.pi/agent/models.json
-each turn. The pi session id is saved to state the moment pi reports it; the next turn resumes it, or — when there is
-no id, or pi refuses it — starts a fresh pi session and gives it the conversation from the history.
+`pi --mode json` prints one JSON object per line: the session, then each message as it grows (text and
+reasoning piece by piece), each tool as it starts and ends, and each turn's usage.
 """
+
 import json
 import os
-import re
-import signal
-import subprocess
 import sys
-import threading
-from pathlib import Path
 
-from hgkit import Emitter, Request
+sys.path.insert(0, os.path.join(os.environ["HG_HARNESS"], "kit"))
 
-TOOLS = Path(os.environ.get("HG_TOOLS", "/opt/hg/tools"))
-PI = TOOLS / "bin" / "pi"
-VENV_BIN = TOOLS / "venv" / "bin"
-REPLAY = os.environ.get("JOURNALIST_PI_REPLAY", "")   # tests: replay a recorded pi JSON stream instead of spawning
-THINKING = {"off", "minimal", "low", "medium", "high", "xhigh"}
+import hgkit  # noqa: E402 - the kit is found through the path set above
 
-req, out = Request.load(), Emitter()
-
-provider = req.provider
-if provider is None:
-    out.failed("server_error", "no provider available for this turn")
-    sys.exit(0)
-model = req.model or "deepseek-v4-pro"
-token = provider.token or ""
-
-def clean(text: str) -> str:
-    """Never let the turn's token (a placeholder) reach the client."""
-    return text.replace(token, "***") if token else text
-
-# The desk and task kind: request metadata overrides the DESK setting, which defaults to biofuels.
-meta = req.get("metadata") or {}
-desk = str(meta.get("desk") or os.environ.get("DESK") or "biofuels").strip() or "biofuels"
-task = str(meta.get("task") or "").strip() or "briefing"
-
-# pi's model registry: point the anthropic provider at this platform's provider and model. Written each turn so the
-# base URL always matches the gateway this turn runs behind (models.json is reseeded, never carried between turns).
-agent_dir = Path(os.environ.get("PI_CODING_AGENT_DIR") or (Path.home() / ".pi" / "agent"))
-agent_dir.mkdir(parents=True, exist_ok=True)
-(agent_dir / "models.json").write_text(json.dumps({
-    "providers": {"anthropic": {
-        "baseUrl": provider.url.rstrip("/"),
-        "apiKey": "ANTHROPIC_API_KEY",
-        "api": "anthropic-messages",
-        "models": [{"id": model, "name": model, "reasoning": True,
-                    "input": ["text", "image"], "contextWindow": 128000, "maxTokens": 16384}],
-    }},
-}, indent=2))
+PI = os.path.join(os.environ["HG_HARNESS"], "tools", "node_modules", ".bin", "pi")
+PROVIDER = "harnessgateway"
+APIS = {"anthropic": "anthropic-messages", "openai-responses": "openai-responses", "openai-chat": "openai-completions"}
+DIFF_MAX = 100_000
 
 
-def extract_text(content) -> str:
+def configure():
+    """pi learns of a provider that is not built into it from a file in its own folder. The key written there
+    is a placeholder: the platform's proxy puts the real key in on the way out."""
+    folder = os.path.join(os.environ["HOME"], ".pi", "agent")
+    os.makedirs(folder, exist_ok=True)
+    model = os.environ["HG_MODEL"]
+    with open(os.path.join(folder, "models.json"), "w", encoding="utf-8") as file:
+        json.dump({"providers": {PROVIDER: {
+            "baseUrl": os.environ["HG_PROVIDER_URL"],
+            "api": APIS[os.environ["HG_PROVIDER_API"]],
+            "apiKey": os.environ["HG_PROVIDER_KEY"],
+            "models": [{"id": model, "name": model, "reasoning": True, "input": ["text"], "contextWindow": 200000,
+                        "maxTokens": 32000, "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}}],
+        }}}, file)
+
+
+def command(continuing):
+    args = [PI, "--provider", PROVIDER, "--model", os.environ["HG_MODEL"], "--mode", "json"]
+    if continuing:
+        args.append("--continue")
+    return [*args, "-p"]
+
+
+def text_of(result):
+    """A tool result's text: pi gives a list of content blocks."""
+    content = (result or {}).get("content") if isinstance(result, dict) else result
     if isinstance(content, str):
         return content
-    return "\n".join(p.get("text", "") for p in content or []
-                     if isinstance(p, dict) and p.get("type") == "text")
+    return "\n".join(block.get("text", "") for block in content or [] if isinstance(block, dict))
 
 
-def edit_diff(args: dict) -> str:
-    edits = args.get("edits")
-    pairs = []
-    if isinstance(edits, list) and edits:
-        pairs = [(e.get("oldText", ""), e.get("newText", "")) for e in edits if isinstance(e, dict)]
-    elif "oldText" in args:
-        pairs = [(args.get("oldText", ""), args.get("newText", ""))]
-    parts = []
-    for old, new in pairs:
-        parts.append("@@\n" + "\n".join("-" + ln for ln in old.split("\n")) +
-                     "\n" + "\n".join("+" + ln for ln in new.split("\n")))
-    return "\n".join(parts)
+def lines_of(text, mark):
+    return "".join(f"{mark}{line}\n" for line in str(text).splitlines())[:DIFF_MAX]
 
 
-def emit_tool(name: str, args: dict, text: str) -> None:
-    args = args or {}
-    text = clean(text)
-    if name == "bash":
-        cmd = str(args.get("command", ""))
-        m = re.search(r"Command exited with code (\d+)", text)
-        exit_code = int(m.group(1)) if m else 0
-        out.ran(cmd, stdout=text, exit=exit_code)
-    elif name == "write":
-        out.wrote(str(args.get("path", "")), str(args.get("content", "")), output=text)
-    elif name == "edit":
-        diff = edit_diff(args)
-        out.edited(str(args.get("path", "")), diff, output=text)
-    else:  # read, ls, find, grep, and any future built-in
-        out.used(name, args, text)
+class Translator:
+    """pi's lines in, Responses events out."""
 
+    def __init__(self, emit, state):
+        self.emit = emit
+        self.state = state
+        self.calls = {}                # tool call id -> its arguments, until it ends
+        self.usage = {"input_tokens": 0, "output_tokens": 0, "input_tokens_details": {"cached_tokens": 0}}
+        self.error = None
+        self.settled = False
 
-def classify(message: str) -> tuple[str, str]:
-    m = (message or "").lower()
-    if "429" in m or "rate limit" in m or "rate_limit" in m:
-        return "rate_limit_exceeded", message
-    if "401" in m or "authentication" in m or "invalid api" in m:
-        return "authentication_error", message
-    if any(c in m for c in ("500", "502", "503", "504", "529", "overloaded", "server error")):
-        return "server_error", message
-    return "provider_error", message
-
-
-def run_pi(args: list[str], prompt: str, replay: str | None = None) -> dict:
-    """Run pi, streaming its JSON events into Responses events. Returns what happened."""
-    env = {
-        **os.environ,
-        "ANTHROPIC_API_KEY": token,
-        "PI_OFFLINE": "1",             # no pi.dev version check / install telemetry at startup
-        "PI_SKIP_VERSION_CHECK": "1",
-        "PI_TELEMETRY": "0",
-        "MPLBACKEND": "Agg",           # matplotlib renders to PNG, never a window
-        "PATH": f"{VENV_BIN}:{TOOLS / 'bin'}:{os.environ.get('PATH', '')}",
-    }
-    result = {"refused": False, "session_id": "", "saw_session": False, "saw_agent_end": False,
-              "usage": {"input": 0, "output": 0, "cached": 0, "cache_write": 0},
-              "error": "", "incomplete": "", "signalled": False}
-    pending: dict[str, tuple] = {}
-    signalled = threading.Event()
-
-    replay_path = REPLAY if replay is None else replay
-    if replay_path:
-        lines = Path(replay_path).read_text().splitlines()
-        proc = None
-        iterator = iter(lines)
-    else:
-        # pi reads the turn's prompt from stdin, not from a positional argument (positional args are files).
-        proc = subprocess.Popen([str(PI), *args], cwd=str(req.workspace), env=env,
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, bufsize=1)
-        proc.stdin.write(prompt)
-        proc.stdin.close()
-
-        def _drain():
-            for raw in proc.stderr:
-                out.log("pi " + clean(raw.rstrip("\n")))
-        threading.Thread(target=_drain, daemon=True).start()
-
-        def _forward(sig, _frame):
-            signalled.set()
-            if proc.poll() is None:
-                proc.send_signal(sig)
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            signal.signal(sig, _forward)
-        iterator = proc.stdout
-
-    for raw in iterator:
-        line = raw.strip()
-        if not line:
-            continue
-        if not line.startswith("{"):
-            if result["session_id"] == "" and "No session found" in line:
-                result["refused"] = True
-                break
-            out.log("pi " + clean(line))
-            continue
+    def read(self, line):
         try:
             event = json.loads(line)
         except ValueError:
-            out.log("pi " + clean(line))
-            continue
+            return self.emit.log(line)
         kind = event.get("type")
-        if kind == "session":
-            result["saw_session"] = True
-            result["session_id"] = str(event.get("id", ""))
-            req.state.set("session", result["session_id"])   # saved the moment pi reports it
+        if kind == "session" and event.get("id"):
+            self.state.set("session", event["id"])
         elif kind == "message_update":
-            delta = event.get("assistantMessageEvent") or {}
-            dtype = delta.get("type")
-            if dtype == "text_delta":
-                out.say(clean(delta.get("delta", "")))
-            elif dtype == "thinking_delta":
-                out.think(clean(delta.get("delta", "")))
-        elif kind == "message_end":
-            m = event.get("message") or {}
-            if m.get("role") == "assistant":
-                u = m.get("usage") or {}
-                result["usage"]["input"] += int(u.get("input") or 0)
-                result["usage"]["output"] += int(u.get("output") or 0)
-                result["usage"]["cached"] += int(u.get("cacheRead") or 0)
-                result["usage"]["cache_write"] += int(u.get("cacheWrite") or 0)
-                if m.get("stopReason") == "error":
-                    result["error"] = clean(str(m.get("errorMessage") or "the provider returned an error"))
-                elif m.get("stopReason") == "length":
-                    result["incomplete"] = "max_output_tokens"
+            piece = event.get("assistantMessageEvent") or {}
+            if piece.get("type") == "text_delta":
+                self.emit.say(piece.get("delta", ""))
+            elif piece.get("type") == "thinking_delta":
+                self.emit.think(piece.get("delta", ""))
         elif kind == "tool_execution_start":
-            pending[str(event.get("toolCallId"))] = (str(event.get("toolName", "")), event.get("args") or {})
+            self.calls[event.get("toolCallId")] = event.get("args") or {}
         elif kind == "tool_execution_end":
-            cid = str(event.get("toolCallId"))
-            name, args = pending.pop(cid, (str(event.get("toolName", "")), None))
-            if name:
-                emit_tool(name, args, extract_text((event.get("result") or {}).get("content")))
-        elif kind == "agent_end":
-            result["saw_agent_end"] = True
+            self.tool(event)
+        elif kind == "turn_end":
+            message = event.get("message") or {}
+            counted = message.get("usage") or {}
+            cached = counted.get("cacheRead", 0)
+            self.usage["input_tokens"] += counted.get("input", 0) + cached + counted.get("cacheWrite", 0)
+            self.usage["output_tokens"] += counted.get("output", 0)
+            self.usage["input_tokens_details"]["cached_tokens"] += cached
+            if message.get("stopReason") == "error":
+                self.error = str(message.get("errorMessage") or "pi reported an error from the provider")
+        elif kind in ("agent_end", "agent_settled"):
+            self.settled = True
 
-    if proc is not None:
-        proc.wait()
-    result["signalled"] = signalled.is_set() or (proc is not None and proc.returncode is not None and proc.returncode < 0)
-    return result
+    def tool(self, event):
+        name, given = event.get("toolName", ""), self.calls.pop(event.get("toolCallId"), {})
+        result = event.get("result") if isinstance(event.get("result"), dict) else {}
+        output, failed = text_of(event.get("result")), bool(event.get("isError"))
+        if name == "bash":
+            code = (result.get("structuredContent") or {}).get("exit_code")
+            self.emit.ran(given.get("command", ""), stdout=output,
+                          exit_code=code if isinstance(code, int) else (1 if failed else 0))
+        elif name == "write" and not failed:
+            self.emit.wrote(given.get("path", ""), lines_of(given.get("content", ""), "+"))
+        elif name == "edit" and not failed:
+            edits = given.get("edits") or [given]
+            diff = "".join(lines_of(edit.get("oldText", ""), "-") + lines_of(edit.get("newText", ""), "+")
+                           for edit in edits)
+            self.emit.edited(given.get("path", ""), diff[:DIFF_MAX])
+        elif name:
+            self.emit.used(name, json.dumps(given), output)
 
 
-def main() -> None:
-    history = req.history()
-    saved = req.state.get("session")
-    names = req.place_inputs()
-    attached = f"\n\nAttached files: {', '.join(names)}" if names else ""
-    assignment = req.prompt.strip()
-    store = req.get("store")
-    ephemeral = store is False
-
-    def brief() -> str:
-        return f"Desk: {desk}\nTask kind: {task}\n\nAssignment: {assignment}{attached}".strip()
-
-    base = [str(PI), "--mode", "json", "--provider", "anthropic", "--model", model,
-            "--tools", "read,bash,edit,write,grep,find,ls"]
-    if ephemeral:
-        base.append("--no-session")
-    effort = req.reasoning_effort
-    if effort in THINKING:
-        base += ["--thinking", effort]
-    if req.instructions:
-        base += ["--append-system-prompt", req.instructions]
-
-    result: dict
-    if saved and not ephemeral:
-        result = run_pi(base + ["--session", saved], (assignment + attached).strip() or brief())
-        if result["refused"]:   # pi found no such session: start fresh and replay the conversation from history
-            out.log("pi refused the saved session; starting fresh from the history")
-            transcript = clean(req.transcript())
-            prompt = brief()
-            if transcript:
-                prompt += "\n\nEarlier conversation (continue from here):\n" + transcript
-            result = run_pi(base, prompt, os.environ.get("JOURNALIST_PI_REPLAY_FALLBACK"))
+def main():
+    request, emit, state = hgkit.Request(), hgkit.Emitter(), hgkit.State()
+    hgkit.seed_mind()
+    configure()
+    cli = hgkit.Cli(command(state.get("session") is not None), stdin=request.brief())
+    translator = Translator(emit, state)
+    for line in cli.lines():
+        translator.read(line)
+    if translator.error:
+        emit.failed("provider_error", translator.error[:2000], translator.usage)
+    elif cli.exit_code == 0 and translator.settled:
+        emit.done(translator.usage)
     else:
-        transcript = clean(req.transcript()) if history else ""
-        prompt = brief()
-        if transcript:
-            prompt += "\n\nEarlier conversation (continue from here):\n" + transcript
-        result = run_pi(base, prompt)
-
-    ignored = [f for f in ("tools", "max_tool_calls", "max_output_tokens", "temperature", "top_p")
-               if req.get(f) is not None]
-    if req.text_format:
-        ignored.append("text")
-    out.ignored(ignored)
-
-    usage = result["usage"]
-    # pi reports cacheRead separately from input; OpenAI counts cached tokens inside input, so add them.
-    kw = dict(input=usage["input"] + usage["cached"], output=usage["output"], cached=usage["cached"],
-              cache_write=usage["cache_write"])
-    meta = {"cli_session": result["session_id"]} if result["session_id"] else None
-    if result["error"]:
-        code, msg = classify(result["error"])
-        out.failed(code, msg, metadata=meta, **kw)
-    elif result["incomplete"]:
-        out.stopped(result["incomplete"], metadata=meta, **kw)
-    elif result["signalled"] or not result["saw_agent_end"]:
-        out.stopped("max_output_tokens", metadata=meta, **kw)
-    else:
-        out.done(metadata=meta, **kw)
+        emit.failed("cli_exit", f"pi exited with code {cli.exit_code} without finishing.", translator.usage)
 
 
 if __name__ == "__main__":

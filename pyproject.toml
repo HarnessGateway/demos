@@ -1,0 +1,13 @@
+[project]
+name = "harnessgateway-demos"
+version = "4.0.0"
+description = "Three small applications with an agent inside each, built on HarnessGateway."
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest", "harnessgateway @ git+https://github.com/HarnessGateway/harnessgateway"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -ra"

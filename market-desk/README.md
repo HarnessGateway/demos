@@ -22,11 +22,11 @@ Stories live in `desk.db` (SQLite), made on first start.
 
 | In the desk | On the platform |
 |---|---|
-| Assign a story | a **background** Responses request with `metadata.desk` and `metadata.task` (briefing, data-release, market-wrap, explainer, news-short, research) |
+| Assign a story | a **background** Responses request whose input names the desk and the kind of task (briefing, data-release, market-wrap, explainer, news-short, research) |
 | The agent's steps while it reports | the turn's events, streamed while it runs (`GET /v1/responses/{id}?stream=true`); its final state is read when it ends |
 | The filed draft, its charts, sources and claims | the agent ends with one fenced `desk-report` block naming the folder it wrote; the desk reads `draft.md`, `sources.json`, `verify.md` and the PNG charts from it with the **Containers API**, relayed so the browser never holds the key |
 | Send back with a note | `previous_response_id`: the same **session**, so the agent revises its own files |
-| Only the primary sources | the package's `run.egress` lists those hosts; the platform's door refuses every other host |
+| Only the primary sources | the package's `run.egress` lists those hosts; the platform's proxy, the sandbox's only way out, refuses every other host |
 
 ## Files
 
@@ -34,4 +34,4 @@ Stories live in `desk.db` (SQLite), made on first start.
 |---|---|
 | `server.py` | the desk: SQLite, the calendar, assignments, revisions, reading the agent's folder back |
 | `index.html` | the page: pipeline by status, stories, calendar, and the story drawer (draft, verify, sources, agent) |
-| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a run-only key labelled `market-desk`), `HG_MODEL` |
+| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a key named `demo-market-desk` that can only run turns), `HG_MODEL` |

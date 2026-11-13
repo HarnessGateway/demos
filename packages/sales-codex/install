@@ -1,6 +1,17 @@
-#!/usr/bin/env bash
-# Install OpenAI's Codex CLI into $HG_TOOLS, pinned to the manifest's version.
-set -euo pipefail
-VERSION="${HG_PACKAGE_VERSION%-*}"
-npm install -g --prefix "$HG_TOOLS" "@openai/codex@${VERSION}"
-echo "installed: $( "$HG_TOOLS/bin/codex" --version )"
+#!/bin/sh
+# Installs the Codex CLI at a pinned version under /harness/tools, by its makers' documented method (npm).
+set -eu
+VERSION=0.167.2
+
+for need in node npm python3; do
+  command -v "$need" >/dev/null 2>&1 || {
+    echo "this image has no $need: Codex is installed with npm, and this package's run needs python3" >&2
+    exit 1
+  }
+done
+
+npm install --prefix /harness/tools --no-audit --no-fund --loglevel=error "@openai/codex@$VERSION"
+
+got=$(/harness/tools/node_modules/.bin/codex --version | awk '{print $NF}')
+[ "$got" = "$VERSION" ] || { echo "installed Codex $got, wanted $VERSION" >&2; exit 1; }
+echo "Codex $got installed"

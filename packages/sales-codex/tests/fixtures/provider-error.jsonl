@@ -1,4 +1,0 @@
-{"type":"thread.started","thread_id":"sess-error-0001"}
-{"type":"turn.started"}
-{"type":"error","message":"Reconnecting... 1/5 (high demand)"}
-{"type":"turn.failed","error":{"message":"Rate limit exceeded."}}

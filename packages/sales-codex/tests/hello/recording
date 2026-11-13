@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"01a1d2a8-a057-7cb3-ab27-469ce6f33333"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model metadata for `scripted` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"[turn 1] You said: Say hello."}}
+{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":20,"reasoning_output_tokens":0}}

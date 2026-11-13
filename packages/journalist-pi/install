@@ -1,18 +1,25 @@
-#!/usr/bin/env bash
-# Install the pi coding agent CLI (pinned) and the chart toolchain (pandas + matplotlib) into $HG_TOOLS.
-set -euo pipefail
+#!/bin/sh
+# Installs pi at a pinned version under /harness/tools, by its makers' documented method (npm), and the
+# tools the desk's charts are drawn with.
+set -eu
+VERSION=1.5.2
 
-VERSION="${HG_PACKAGE_VERSION%-*}"     # e.g. 0.73.1 from "0.73.1-1"
-TOOLS="${HG_TOOLS:?}"
+for need in node npm python3; do
+  command -v "$need" >/dev/null 2>&1 || {
+    echo "this image has no $need: pi needs Node.js 22.19 or later, and this package's run needs python3" >&2
+    exit 1
+  }
+done
 
-# pi: the vendor's documented install, pinned. The bin shim lands in $TOOLS/bin/pi.
-npm install -g --prefix "$TOOLS" --no-audit --no-fund --loglevel=error \
-  "@mariozechner/pi-coding-agent@${VERSION}"
+npm install --prefix /harness/tools --no-audit --no-fund --loglevel=error "@earendil-works/pi-coding-agent@$VERSION"
 
-# pandas + matplotlib for the desk charts, in a venv so the agent's `python3` finds them at run time.
-python3 -m venv "$TOOLS/venv"
-"$TOOLS/venv/bin/pip" install --no-cache-dir --disable-pip-version-check \
+got=$(/harness/tools/node_modules/.bin/pi --version 2>/dev/null | tail -1 | awk '{print $NF}')
+[ "$got" = "$VERSION" ] || { echo "installed pi $got, wanted $VERSION" >&2; exit 1; }
+echo "pi $got installed"
+
+# The desk's charts: pandas and matplotlib at pinned versions, in an environment of their own beside the CLI.
+# The agent's instructions tell it to run /harness/tools/charts/bin/python for anything that draws or computes.
+python3 -m venv /harness/tools/charts
+/harness/tools/charts/bin/pip install --no-cache-dir --disable-pip-version-check --quiet \
   "pandas==3.1.1" "matplotlib==3.11.2"
-
-echo "installed: pi $("$TOOLS/bin/pi" --version)"
-"$TOOLS/venv/bin/python" -c 'import pandas, matplotlib; print(f"installed: pandas {pandas.__version__}, matplotlib {matplotlib.__version__}")'
+/harness/tools/charts/bin/python -c 'import pandas, matplotlib; print("pandas", pandas.__version__, "matplotlib", matplotlib.__version__, "installed")'

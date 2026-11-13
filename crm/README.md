@@ -24,7 +24,7 @@ over.
 
 | In the CRM | On the platform |
 |---|---|
-| ✨ Ask, with the question and a snapshot of the CRM | a **background** Responses request from the CRM's server with a run-only key; the snapshot goes with it as an `input_file` named `customers.json` (every customer, distance from the store, every activity) |
+| ✨ Ask, with the question and a snapshot of the CRM | a **background** Responses request from the CRM's server with a key that can only run turns; the snapshot goes with it as an `input_file` named `customers.json` (every customer, distance from the store, every activity) |
 | Follow-up questions in the same chat | `previous_response_id`: the same **session**, so the agent's scratch work and Codex's memory carry over; each question still carries a fresh snapshot |
 | The agent's steps while it works | the turn's events, streamed while it runs (`GET /v1/responses/{id}?stream=true`); its final state is read when it ends |
 | Drafts land in the Outbox | the agent ends its answer with one fenced `crm-drafts` block of JSON (`contact_id`, `channel`, `subject`, `body`); the package's standing instructions define it, the CRM parses it |
@@ -57,4 +57,4 @@ CRM_TEST_PHONE=+15125550100
 | `server.py` | the CRM: SQLite, geocoding (US Census, then OpenStreetMap), distances, the snapshot, the agent, the Outbox |
 | `index.html` | the page: pipeline, list and map, a customer drawer with activity, the agent, the Outbox, settings |
 | `seed.json` | the 75 demo customers and their 170 activities, with dates relative to the day the database is made |
-| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a run-only key labelled `crm`), `HG_MODEL` |
+| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a key named `demo-crm` that can only run turns), `HG_MODEL` |

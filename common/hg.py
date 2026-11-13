@@ -1,10 +1,10 @@
-"""The HarnessGateway API, as an application uses it: a run-only key named after the app, one session per thing the
-app tracks (an account, an engagement, a desk thread), turns in the background, the workspace read back through the
-Containers API. Standard library only.
+"""The HarnessGateway API, as an application uses it: a key that can only run turns, one session per thing the app
+tracks (a chat, a story, a campaign), turns in the background, the agent's work read back through the Containers
+API. Everything here is the OpenAI Responses, Files and Containers APIs, unchanged; the standard library is enough.
 
     hg = HG.from_env(Path(__file__).parent)        # HG_API, HG_KEY, HG_MODEL from the app's .env or the environment
     turn = hg.start("Research Acme", user="ana", previous=last_response_id, metadata={"account": "acme"})
-    ...later: hg.response(turn["id"]) until its status is final; hg.folder(session_id, "/workspace/accounts/acme")
+    ...later: hg.response(turn["id"]) until its status is final; hg.folder(hg.session(turn), "accounts/acme")
 """
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ import base64
 import json
 import os
 import threading
-import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -66,9 +65,8 @@ class HG:
     # ── turns ──────────────────────────────────────────────────────────────────────────────────────────────────────
     def start(self, prompt: str, *, user: str, previous: str | None = None, metadata: dict[str, str] | None = None,
               instructions: str | None = None, files: dict[str, tuple[str, bytes]] | None = None) -> dict[str, Any]:
-        """A background turn: the Response in its queued state, with id and metadata.session_id. `files` are sent
-        inline with the prompt as input_file parts ({filename: (media type, bytes)}); the platform puts them where
-        the harness reads a turn's input files."""
+        """A background turn: the Response in its queued state. `files` are sent inline with the prompt as
+        input_file parts ({filename: (media type, bytes)}); the agent finds them under inputs/ in its work folder."""
         content: Any = prompt
         if files:
             content = [{"role": "user", "content": [{"type": "input_text", "text": prompt}, *(
@@ -135,38 +133,41 @@ class HG:
                 op = item.get("operation") or {}
                 verb = {"create_file": "wrote", "update_file": "edited", "delete_file": "deleted"}.get(op.get("type"), "changed")
                 out.append({"kind": verb, "text": op.get("path", "")})
-            elif kind in ("function_call", "mcp_call", "web_search_call"):
+            elif kind in ("custom_tool_call", "mcp_call"):
                 out.append({"kind": "used", "text": item.get("name") or kind})
         return out
 
-    # ── the workspace ──────────────────────────────────────────────────────────────────────────────────────────────
-    def container(self, sid: str) -> dict[str, Any]:
-        return self.call("GET", f"/containers/{sid}")
+    # ── the agent's work ───────────────────────────────────────────────────────────────────────────────────────────
+    @staticmethod
+    def session(response: dict[str, Any]) -> str:
+        """The session a response belongs to: what the app keeps to read the agent's work later."""
+        return (response.get("metadata") or {}).get("hg_session", "")
 
-    def settle(self, sid: str, timeout_s: float = 120) -> None:
-        """Until the session's state is saved: a turn ends before its process exits and its workspace is saved."""
-        deadline = time.time() + timeout_s
-        while time.time() < deadline and self.container(sid)["metadata"].get("state") != "idle":
-            time.sleep(2)
+    @staticmethod
+    def _container(sid: str) -> str:
+        """A session's work folder as the Containers API names it."""
+        return "cntr_" + sid.removeprefix("sess_")
 
     def files(self, sid: str) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         after = None
         while True:
-            page = self.call("GET", f"/containers/{sid}/files?limit=100" + (f"&after={after}" if after else ""))
+            page = self.call("GET", f"/containers/{self._container(sid)}/files?limit=100"
+                             + (f"&after={after}" if after else ""))
             out += page["data"]
             if not page.get("has_more"):
                 return out
             after = page["last_id"]
 
     def folder(self, sid: str, prefix: str) -> list[dict[str, Any]]:
-        """The files under a workspace folder: {id, path, rel, bytes, at}."""
-        prefix = prefix.rstrip("/") + "/"
+        """The files under a folder of the session's work: {id, path, rel, bytes, at}. A turn's work is saved
+        before its response is final, so what a finished turn wrote is always here."""
+        prefix = "/work/" + prefix.strip("/") + "/"
         return [{"id": f["id"], "path": f["path"], "rel": f["path"][len(prefix):], "bytes": f["bytes"],
                  "at": f.get("created_at", 0)} for f in self.files(sid) if f["path"].startswith(prefix)]
 
     def read(self, sid: str, file_id: str) -> bytes:
-        return self.call("GET", f"/containers/{sid}/files/{file_id}/content", raw=True)
+        return self.call("GET", f"/containers/{self._container(sid)}/files/{file_id}/content", raw=True)
 
     def read_text(self, sid: str, files: list[dict[str, Any]], rel: str) -> str:
         f = next((f for f in files if f["rel"] == rel), None)

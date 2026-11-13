@@ -34,7 +34,7 @@ sys.path.insert(0, str(HERE.parent / "common"))
 from hg import FINAL, HG, ApiError, dotenv  # noqa: E402
 
 DB_PATH = HERE / "desk.db"
-DEFAULT_MODEL = "journalist-pi/deepseek-anthropic/deepseek-v4-pro"
+DEFAULT_MODEL = "journalist-pi/deepseek"
 ET = ZoneInfo("America/New_York")
 DESKS = {"biofuels": "Biofuels", "crude-oil": "Crude oil"}
 KINDS = ["briefing", "data-release", "market-wrap", "explainer", "news-short", "research"]
@@ -142,7 +142,7 @@ def start_run(conn: sqlite3.Connection, story_id: int, kind: str, text: str, not
     conn.execute("INSERT INTO runs (story_id, kind, note, response_id, status, created_at) VALUES (?,?,?,?,?,?)",
                  (story_id, kind, note, turn["id"], turn["status"], time.time()))
     conn.execute("UPDATE stories SET session_id = ?, updated_at = ? WHERE id = ?",
-                 (turn["metadata"].get("session_id", ""), time.time(), story_id))
+                 (hg.session(turn), time.time(), story_id))
 
 
 def assign(desk: str, kind: str, title: str, brief: str) -> dict[str, Any]:
@@ -197,7 +197,7 @@ def parse_claims(md: str) -> list[dict[str, Any]]:
 
 
 def collect(run: dict[str, Any], r: dict[str, Any]) -> None:
-    """A finished run: its answer, and the story's draft, sources, claims and charts read from the workspace."""
+    """A finished run: its answer, and the story's draft, sources, claims and charts read from the session's work."""
     answer = final_message(r)
     m = REPORT_RE.search(answer)
     report: dict[str, Any] = {}
@@ -211,10 +211,9 @@ def collect(run: dict[str, Any], r: dict[str, Any]) -> None:
     with db() as conn:
         s = story(conn, run["story_id"])
     update: dict[str, Any] = {}
-    folder = str(report.get("folder") or s["folder"] or "").strip("/").removeprefix("workspace/")
+    folder = str(report.get("folder") or s["folder"] or "").strip("/")
     if r["status"] == "completed" and folder and s["session_id"]:
-        hg.settle(s["session_id"])
-        files = hg.folder(s["session_id"], "/workspace/" + folder)
+        files = hg.folder(s["session_id"], folder)
         draft = hg.read_text(s["session_id"], files, "draft.md")
         try:
             sources = json.loads(hg.read_text(s["session_id"], files, "sources.json") or "[]")

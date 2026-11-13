@@ -1,5 +1,0 @@
-{"type":"thread.started","thread_id":"sess-text-0001"}
-{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model metadata not found. Defaulting to fallback metadata."}}
-{"type":"turn.started"}
-{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Call Alice Ortega (3 days overdue) and Dana Wu (proposal stalling at $12,400)."}}
-{"type":"turn.completed","usage":{"input_tokens":120,"cached_input_tokens":10,"cache_write_input_tokens":0,"output_tokens":40,"reasoning_output_tokens":0}}

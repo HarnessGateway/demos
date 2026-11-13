@@ -1,21 +1,26 @@
 {
   "contract": 1,
   "name": "sales-codex",
-  "version": "0.167.0-1",
-  "description": "The Showroom's CRM sales assistant on OpenAI's Codex CLI (headless, non-interactive). Each turn it reads the CRM snapshot (customers.json), reasons over overdue follow-ups, stalling proposals, proximity, pipeline value by stage and referral asks, and answers in short concrete prose; when outreach is due it proposes ready-to-send drafts as a single crm-drafts JSON block. It never sends or writes to the CRM, is fenced by Codex's workspace-write sandbox and an execpolicy that refuses remote, network and destructive commands, and reaches the model only through the platform's provider.",
-  "provider": {"apis": ["openai"]},
-  "defaults": {"model": "deepseek-v4-pro"},
-  "install": {"egress": ["registry.npmjs.org"], "timeout_s": 900},
-  "run": {"egress": [], "timeout_s": 600, "stop_grace_s": 10},
-  "persist": [".codex"],
+  "version": "0.167.2-1",
+  "description": "A showroom's sales assistant on the Codex CLI. It reads the CRM's snapshot sent with each question, answers with names and numbers, and drafts emails and texts for a person to send.",
+  "mind": ".codex",
+  "apis": [
+    "openai-responses"
+  ],
+  "install": {
+    "timeout_s": 900
+  },
+  "run": {
+    "stop_grace_s": 15
+  },
   "settings": {
     "STORE_PROFILE": {
-      "description": "The store's voice: what it sells and how it talks to customers, given to the agent every turn.",
+      "description": "What the store sells and how it talks to customers",
       "default": "A family-owned home-improvement showroom selling kitchen and bath remodels, flooring, cabinets and countertops. Warm, plain-spoken, no pressure."
     },
     "SIGNATURE": {
-      "description": "The signature appended to drafted email (and SMS, when it fits) messages.",
-      "default": "— The Showroom team"
+      "description": "How drafted messages are signed",
+      "default": "The Showroom team"
     }
   }
 }

@@ -25,10 +25,10 @@ campaign request carries; the two example campaigns are for the same Austin show
 
 | In the studio | On the platform |
 |---|---|
-| Draft the campaign | a **background** Responses request with `metadata.campaign` and `metadata.platforms`; the brand, goal, audience, canonical URL and the content (or the URL to read) in the input |
-| The plan, its posts and times | the agent ends with one fenced `social-plan` block of JSON (the same document as `campaigns/<slug>/plan.json` in its workspace); `strategy.md` is read with the **Containers API** |
+| Draft the campaign | a **background** Responses request; the campaign's slug, the platforms, the brand, goal, audience, canonical URL and the content (or the URL to read) are all in the input |
+| The plan, its posts and times | the agent ends with one fenced `social-plan` block of JSON (the same document as `campaigns/<slug>/plan.json` in its work folder); `strategy.md` is read with the **Containers API** |
 | Revise one post, or the plan | `previous_response_id`: the same **session**, so the agent edits its own files; approved posts are named so it keeps them |
-| Read a page, post nowhere | the package allows the public web, and its Claude Code permission rules and hook refuse posting and every social API |
+| Read a page, post nowhere | the agent runs in the environment `web` (the model is `web:social-claude-code/…`): its sandbox reaches the public web, and the platform's proxy refuses every social platform's API |
 
 ## Files
 
@@ -36,4 +36,4 @@ campaign request carries; the two example campaigns are for the same Austin show
 |---|---|
 | `server.py` | the studio: SQLite, campaigns, runs, reading the plan back, resolving "day 2 09:00" to dates |
 | `index.html` | the page: campaigns, a two-week calendar, the campaign drawer (posts, strategy, brief, agent), the brand |
-| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a run-only key labelled `social`), `HG_MODEL` |
+| `.env` | written by `scripts/setup.py`: `HG_API`, `HG_KEY` (a key named `demo-social` that can only run turns), `HG_MODEL` |
