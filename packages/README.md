@@ -30,5 +30,7 @@ pip install git+https://github.com/HarnessGateway/harnessgateway
 harnessgateway package check packages/sales-codex      # validates it and replays its recorded case
 ```
 
-`scripts/setup.py` adds all three to a platform. One alone: upload the folder as a `.tar.gz` to
-`POST /v1/harnesses`, or use the console's Harnesses page.
+`scripts/setup.py` adds all three to a platform, and makes the environments they run in carry them. One alone:
+upload the folder as a `.tar.gz` to `POST /v1/harnesses`, or use the console's Harnesses page; then tick it in an
+environment (or `PATCH /v1/environments/<name>` with the `harnesses` it carries), since a request may name only a
+harness its environment carries.

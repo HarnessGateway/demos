@@ -28,7 +28,7 @@ campaign request carries; the two example campaigns are for the same Austin show
 | Draft the campaign | a **background** Responses request; the campaign's slug, the platforms, the brand, goal, audience, canonical URL and the content (or the URL to read) are all in the input |
 | The plan, its posts and times | the agent ends with one fenced `social-plan` block of JSON (the same document as `campaigns/<slug>/plan.json` in its work folder); `strategy.md` is read with the **Containers API** |
 | Revise one post, or the plan | `previous_response_id`: the same **session**, so the agent edits its own files; approved posts are named so it keeps them |
-| Read a page, post nowhere | the agent runs in the environment `web` (the model is `web:social-claude-code/…`): its sandbox reaches the public web, and the platform's proxy refuses every social platform's API |
+| Read a page, post nowhere | the agent runs in the environment `web`, which carries it (the model is `web/social-claude-code/<provider>/<model>`): its sandbox reaches the public web, and the platform's proxy refuses every social platform's API |
 
 ## Files
 

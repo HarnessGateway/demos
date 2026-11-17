@@ -34,7 +34,7 @@ sys.path.insert(0, str(HERE.parent / "common"))
 from hg import FINAL, HG, ApiError, dotenv  # noqa: E402
 
 DB_PATH = HERE / "desk.db"
-DEFAULT_MODEL = "journalist-pi/deepseek"
+DEFAULT_MODEL = "default/journalist-pi/deepseek/deepseek-flash"
 ET = ZoneInfo("America/New_York")
 DESKS = {"biofuels": "Biofuels", "crude-oil": "Crude oil"}
 KINDS = ["briefing", "data-release", "market-wrap", "explainer", "news-short", "research"]

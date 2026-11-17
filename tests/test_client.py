@@ -20,8 +20,9 @@ URL, KEY = os.environ.get("HG_TEST_URL"), os.environ.get("HG_TEST_KEY")
 pytestmark = pytest.mark.skipif(not (URL and KEY), reason="set HG_TEST_URL and HG_TEST_KEY to run against a platform")
 
 
-def admin(method: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
-    request = urllib.request.Request(f"{URL}/v1{path}", method=method, data=json.dumps(body).encode(), headers={
+def admin(method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(f"{URL}/v1{path}", method=method, data=data, headers={
         "authorization": f"Bearer {KEY}", "content-type": "application/json"})
     with urllib.request.urlopen(request, timeout=60) as response:
         return json.load(response)
@@ -29,10 +30,15 @@ def admin(method: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
 
 @pytest.fixture(scope="module")
 def hg() -> HG:
-    """A client holding what an app holds: a key that can only run turns."""
+    """A client holding what an app holds: a key that can only run turns. The default environment carries `shell`,
+    which calls no model, so its model string is default/shell/none/none."""
     assert URL
     admin("POST", "/harnesses", {"catalog": "shell"})
-    return HG(URL, admin("POST", "/keys", {"name": "demo-client-test", "role": "runner"})["key"], "shell")
+    carried = admin("GET", "/environments/default")["harnesses"]
+    if "shell" not in carried:
+        admin("PATCH", "/environments/default", {"harnesses": [*carried, "shell"]})
+    key = admin("POST", "/keys", {"name": "demo-client-test", "role": "runner"})["key"]
+    return HG(URL, key, "default/shell/none/none")
 
 
 def finished(hg: HG, turn: dict[str, Any]) -> dict[str, Any]:

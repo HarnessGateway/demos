@@ -28,8 +28,8 @@ editor checked claim by claim, and the studio schedules only the posts someone a
 
 ## Running them
 
-You need a HarnessGateway (4.0 or later), an admin key, and one provider on it with base URLs for the OpenAI
-Responses API and the Anthropic Messages API.
+You need a HarnessGateway (4.2 or later), an admin key, and one provider on it with base URLs for the OpenAI
+Responses API and the Anthropic Messages API, and the models it offers in `models` (or name one with `--model`).
 
 ```bash
 git clone https://github.com/HarnessGateway/demos && cd demos
@@ -39,9 +39,11 @@ python3 market-desk/server.py  # http://127.0.0.1:8910
 python3 social/server.py       # http://127.0.0.1:8920
 ```
 
-`setup.py` adds the three packages, makes the environment the social media manager runs in, creates one key per app
-that can only run turns, and writes each app's `.env` (`HG_API`, `HG_KEY`, `HG_MODEL`). The model is
-`[environment:]harness/provider[/model]`.
+`setup.py` adds the three packages, makes the environment the social media manager runs in, has each environment
+carry the harnesses that run in it and waits for their installs, creates one key per app that can only run turns, and
+writes each app's `.env` (`HG_API`, `HG_KEY`, `HG_MODEL`). The model is `environment/harness/provider/model`, every
+part named: `default/sales-codex/deepseek/deepseek-flash`, `web/social-claude-code/deepseek/deepseek-flash`. A
+request may name a harness only in an environment that carries it.
 
 The apps are standard-library Python servers and plain JavaScript pages, on purpose: nothing hides how the platform is
 used. [`common/hg.py`](common/hg.py) is the whole client.

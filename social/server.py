@@ -34,7 +34,7 @@ sys.path.insert(0, str(HERE.parent / "common"))
 from hg import FINAL, HG, ApiError, dotenv  # noqa: E402
 
 DB_PATH = HERE / "social.db"
-DEFAULT_MODEL = "web:social-claude-code/deepseek"
+DEFAULT_MODEL = "web/social-claude-code/deepseek/deepseek-flash"
 PLATFORMS = {"x": ("X", 280), "linkedin": ("LinkedIn", 1300), "instagram": ("Instagram", 2200), "threads": ("Threads", 500),
              "bluesky": ("Bluesky", 300), "mastodon": ("Mastodon", 500), "facebook": ("Facebook", 2000)}
 PLAN_RE = re.compile(r"```social-plan[ \t]*\n(.*?)```", re.S)

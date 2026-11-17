@@ -47,7 +47,12 @@ class HG:
         env = dotenv(folder)
         if not env.get("HG_KEY"):
             raise SystemExit(f"no HG_KEY: run scripts/setup.py, or put HG_API and HG_KEY in {folder / '.env'}")
-        return cls(env.get("HG_API", "http://127.0.0.1:8000"), env["HG_KEY"], env.get("HG_MODEL", default_model))
+        model = env.get("HG_MODEL", default_model)
+        parts = model.split("/", 3)
+        if len(parts) != 4 or not all(parts):                # what HarnessGateway before 4.2 took
+            raise SystemExit(f"HG_MODEL is environment/harness/provider/model, every part named, not {model!r}: "
+                             f"run scripts/setup.py again, or fix it in {folder / '.env'}")
+        return cls(env.get("HG_API", "http://127.0.0.1:8000"), env["HG_KEY"], model)
 
     # ── calls ──────────────────────────────────────────────────────────────────────────────────────────────────────
     def call(self, method: str, path: str, body: dict[str, Any] | None = None, raw: bool = False,
