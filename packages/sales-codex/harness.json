@@ -1,9 +1,10 @@
 {
   "contract": 1,
   "name": "sales-codex",
-  "version": "0.167.2-1",
+  "version": "0.167.2-2",
   "description": "A showroom's sales assistant on the Codex CLI. It reads the CRM's snapshot sent with each question, answers with names and numbers, and drafts emails and texts for a person to send.",
   "mind": ".codex",
+  "cache": [".codex/.tmp"],
   "apis": [
     "openai-responses"
   ],

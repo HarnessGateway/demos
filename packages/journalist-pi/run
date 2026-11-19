@@ -116,7 +116,7 @@ class Translator:
 
 def main():
     request, emit, state = hgkit.Request(), hgkit.Emitter(), hgkit.State()
-    hgkit.seed_mind()
+    hgkit.seed()
     configure()
     cli = hgkit.Cli(command(state.get("session") is not None), stdin=request.brief())
     translator = Translator(emit, state)

@@ -147,7 +147,7 @@ class Translator:
 
 def turn(request, emit, state, session):
     """Run the CLI once. Returns its translator and its exit code."""
-    hgkit.seed_mind()
+    hgkit.seed()
     cli = hgkit.Cli(command(request, session), env=environment(), stdin=request.brief(instructions=False))
     translator = Translator(emit, state)
     for line in cli.lines():

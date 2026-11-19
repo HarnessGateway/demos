@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs pi at a pinned version under /harness/tools, by its makers' documented method (npm), and the
+# Installs pi at a pinned version under $HG_HARNESS/tools, by its makers' documented method (npm), and the
 # tools the desk's charts are drawn with.
 set -eu
 VERSION=1.5.2
@@ -11,15 +11,15 @@ for need in node npm python3; do
   }
 done
 
-npm install --prefix /harness/tools --no-audit --no-fund --loglevel=error "@earendil-works/pi-coding-agent@$VERSION"
+npm install --prefix "$HG_HARNESS/tools" --no-audit --no-fund --loglevel=error "@earendil-works/pi-coding-agent@$VERSION"
 
-got=$(/harness/tools/node_modules/.bin/pi --version 2>/dev/null | tail -1 | awk '{print $NF}')
+got=$("$HG_HARNESS/tools/node_modules/.bin/pi" --version 2>/dev/null | tail -1 | awk '{print $NF}')
 [ "$got" = "$VERSION" ] || { echo "installed pi $got, wanted $VERSION" >&2; exit 1; }
 echo "pi $got installed"
 
 # The desk's charts: pandas and matplotlib at pinned versions, in an environment of their own beside the CLI.
 # The agent's instructions tell it to run /harness/tools/charts/bin/python for anything that draws or computes.
-python3 -m venv /harness/tools/charts
-/harness/tools/charts/bin/pip install --no-cache-dir --disable-pip-version-check --quiet \
+python3 -m venv "$HG_HARNESS/tools/charts"
+"$HG_HARNESS/tools/charts/bin/pip" install --no-cache-dir --disable-pip-version-check --quiet \
   "pandas==3.1.1" "matplotlib==3.11.2"
-/harness/tools/charts/bin/python -c 'import pandas, matplotlib; print("pandas", pandas.__version__, "matplotlib", matplotlib.__version__, "installed")'
+"$HG_HARNESS/tools/charts/bin/python" -c 'import pandas, matplotlib; print("pandas", pandas.__version__, "matplotlib", matplotlib.__version__, "installed")'

@@ -1,7 +1,7 @@
 {
   "contract": 1,
   "name": "social-claude-code",
-  "version": "2.1.323-1",
+  "version": "2.1.323-2",
   "description": "A social media manager on Claude Code. Given a campaign, it reads the source and writes a post for each platform and a plan for posting them, for a person to approve.",
   "mind": ".claude",
   "apis": [

@@ -8,7 +8,10 @@ A commodities-market journalist, on pi. It is the agent inside the [Market Desk]
   `verify.md` (every claim, with its source and whether it was verified) and PNG charts.
 - **It answers** in prose and ends with one fenced `desk-report` block naming the folder and its files, which the
   desk app reads back through the Containers API.
-- **It reaches** its model and the hosts in `run.egress`: EIA, EPA, CARB, the Federal Register and USDA.
+- **It reaches** its model and what its environment allows; a package names no host. The desks' primary sources
+  are `www.eia.gov`, `api.eia.gov`, `www.epa.gov`, `ww2.arb.ca.gov`, `www.federalregister.gov`,
+  `www.ams.usda.gov` and `www.ers.usda.gov`: an environment it runs in lists them in `network.allow`, as the
+  one `scripts/setup.py` makes (`primary-sources`) does.
 - **Provider API:** Anthropic Messages, OpenAI Responses or OpenAI Chat Completions, whichever the provider has.
 
 `run` is the `pi` package's, unchanged; `install` is too, plus pandas and matplotlib at pinned versions under

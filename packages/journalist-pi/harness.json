@@ -1,7 +1,7 @@
 {
   "contract": 1,
   "name": "journalist-pi",
-  "version": "1.5.2-1",
+  "version": "1.5.2-2",
   "description": "A commodities-market journalist on pi. Given a desk and an assignment, it reads the desk's primary sources and files a cited draft with its sources, the claims to verify, and charts.",
   "mind": ".pi",
   "apis": [
@@ -13,15 +13,6 @@
     "timeout_s": 1200
   },
   "run": {
-    "stop_grace_s": 15,
-    "egress": [
-      "www.eia.gov",
-      "api.eia.gov",
-      "www.epa.gov",
-      "ww2.arb.ca.gov",
-      "www.federalregister.gov",
-      "www.ams.usda.gov",
-      "www.ers.usda.gov"
-    ]
+    "stop_grace_s": 15
   }
 }

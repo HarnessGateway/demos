@@ -105,7 +105,7 @@ def turn(request, emit, state, session):
 
 def main():
     request, emit, state = hgkit.Request(), hgkit.Emitter(), hgkit.State()
-    hgkit.seed_mind()
+    hgkit.seed()
     session = state.get("session")
     translator, code = turn(request, emit, state, session)
     if session and not translator.ended and code != 0:

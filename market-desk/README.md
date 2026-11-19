@@ -26,7 +26,7 @@ Stories live in `desk.db` (SQLite), made on first start.
 | The agent's steps while it reports | the turn's events, streamed while it runs (`GET /v1/responses/{id}?stream=true`); its final state is read when it ends |
 | The filed draft, its charts, sources and claims | the agent ends with one fenced `desk-report` block naming the folder it wrote; the desk reads `draft.md`, `sources.json`, `verify.md` and the PNG charts from it with the **Containers API**, relayed so the browser never holds the key |
 | Send back with a note | `previous_response_id`: the same **session**, so the agent revises its own files |
-| Only the primary sources | the package's `run.egress` lists those hosts; the platform's proxy, the sandbox's only way out, refuses every other host |
+| Only the primary sources | the environment the agent runs in (`primary-sources`) allows those hosts and nothing else; the platform's proxy, the sandbox's only way out, refuses every other host |
 
 ## Files
 

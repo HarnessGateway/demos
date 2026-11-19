@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Point the demos at a HarnessGateway. With an admin key it adds the three demo packages, makes the environments
-they run in carry them (making the one the social media manager runs in), waits for their installs, creates one key
-per app that can only run turns, and writes each app's .env.
+"""Point the demos at a HarnessGateway. With an admin key it adds the three demo packages, makes the environment
+each agent runs in and has it carry the agent's harness, waits for the installs, creates one key per app that can
+only run turns, and writes each app's .env.
 
     scripts/setup.py --api http://localhost:8000 --admin-key-file ~/admin.key --provider deepseek [--model NAME]
 
@@ -28,20 +28,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # app: (its harness package, the provider API that harness speaks, the environment it runs in)
 APPS = {
-    "crm": ("sales-codex", "openai-responses", "default"),
-    "market-desk": ("journalist-pi", "anthropic", "default"),
+    "crm": ("sales-codex", "openai-responses", "model-only"),
+    "market-desk": ("journalist-pi", "anthropic", "primary-sources"),
     "social": ("social-claude-code", "anthropic", "web"),
 }
 
-# The social media manager reads whatever page a campaign points at, so its sandbox reaches the public web, except
-# the platforms' own APIs: it drafts, it never posts. The other two agents stay in the default environment, where
-# a sandbox reaches its provider and the hosts its package names, and nothing else.
-WEB = {
-    "name": "web",
-    "network": {"mode": "open", "deny": [
-        "api.twitter.com", "api.x.com", "graph.facebook.com", "api.linkedin.com", "api.threads.net", "bsky.social"]},
+# The environment decides what an agent reaches; a package names no host. One environment per agent:
+# the sales agent reaches its model and nothing else;
+# the journalist reaches its model and the desks' primary sources (EIA, EPA, CARB, the Federal Register, USDA);
+# the social media manager reads whatever page a campaign points at, so it reaches the public web, except the
+# platforms' own APIs: it drafts, it never posts.
+ENVIRONMENTS = {
+    "model-only": {"network": {"mode": "closed"}},
+    "primary-sources": {"network": {"mode": "limited", "package_managers": False, "allow": [
+        "www.eia.gov", "api.eia.gov", "www.epa.gov", "ww2.arb.ca.gov", "www.federalregister.gov",
+        "www.ams.usda.gov", "www.ers.usda.gov"]}},
+    "web": {"network": {"mode": "open", "deny": [
+        "api.twitter.com", "api.x.com", "graph.facebook.com", "api.linkedin.com", "api.threads.net", "bsky.social"]}},
 }
-ENVIRONMENTS = {"web": WEB}                   # the environments made here when missing; others are made with defaults
 
 
 class Platform:
@@ -82,17 +86,16 @@ class Platform:
                 f"Content-Type: application/gzip\r\n\r\n").encode() + packed.getvalue() + f"\r\n--{boundary}--\r\n".encode()
         return self.call("POST", "/harnesses", body, f"multipart/form-data; boundary={boundary}")["name"]
 
-    def carry(self, environment: dict, harnesses: list[str]) -> bool:
-        """Have an environment carry these harnesses besides those it carries, making it when it is not there, and
-        say whether it was made. A request may name only a harness its environment carries; the environment
-        installs each one it carries on its image."""
-        name = environment["name"]
+    def carry(self, name: str, harnesses: list[str]) -> bool:
+        """Have the environment of this name carry these harnesses besides those it carries, making it when it is
+        not there, and say whether it was made. A request may name only a harness its environment carries; the
+        environment installs each one it carries on its image."""
         if not self.exists(f"/environments/{name}"):
-            self.post("/environments", {**environment, "harnesses": sorted(harnesses)})
+            self.post("/environments", {"name": name, **ENVIRONMENTS[name], "harnesses": sorted(harnesses)})
             return True
         carried = self.call("GET", f"/environments/{name}")["harnesses"]
         self.call("PATCH", f"/environments/{name}",
-                  json.dumps({"harnesses": sorted({*carried, *harnesses})}).encode())
+                  json.dumps({**ENVIRONMENTS[name], "harnesses": sorted({*carried, *harnesses})}).encode())
         return False
 
     def wait_for_installs(self, environment: str, harnesses: list[str]) -> list[dict]:
@@ -133,7 +136,7 @@ def main() -> None:
     for harness, _, environment in APPS.values():
         carrying.setdefault(environment, []).append(harness)
     for environment, harnesses in carrying.items():
-        if platform.carry(ENVIRONMENTS.get(environment, {"name": environment}), harnesses):
+        if platform.carry(environment, harnesses):
             print(f"environment {environment}: made")
         print(f"environment {environment}: carries {', '.join(harnesses)}, installing ...", flush=True)
     for environment, harnesses in carrying.items():

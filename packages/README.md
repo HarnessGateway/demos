@@ -17,11 +17,11 @@ One package per app. Each is a coding-agent CLI as its makers ship it, plus what
 - `seeds/mind/` is copied into the session's home the first time the agent runs there. It holds the
   instructions file the CLI reads on its own (`.codex/AGENTS.md`, `.pi/agent/AGENTS.md`, `.claude/CLAUDE.md`)
   and the reference material those instructions point at.
-- `harness.json` names the package, the provider APIs the CLI speaks, the settings an operator can change, and
-  the hosts the agent may reach beyond its model.
+- `harness.json` names the package, the provider APIs the CLI speaks and the settings an operator can change.
 
-What an agent can reach is not the package's to enforce. The platform's proxy is the sandbox's only way out: it
-allows the provider, the hosts the package names, and what the environment allows.
+What an agent can reach is not the package's to say. The platform's proxy is the sandbox's only way out: it allows
+the provider and what the environment allows, and nothing else. A package's README lists the hosts its agent needs,
+for whoever sets its environment up.
 
 ## Checking and adding one
 

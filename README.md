@@ -28,7 +28,7 @@ editor checked claim by claim, and the studio schedules only the posts someone a
 
 ## Running them
 
-You need a HarnessGateway (4.2 or later), an admin key, and one provider on it with base URLs for the OpenAI
+You need a HarnessGateway (4.3 or later), an admin key, and one provider on it with base URLs for the OpenAI
 Responses API and the Anthropic Messages API, and the models it offers in `models` (or name one with `--model`).
 
 ```bash
@@ -39,11 +39,11 @@ python3 market-desk/server.py  # http://127.0.0.1:8910
 python3 social/server.py       # http://127.0.0.1:8920
 ```
 
-`setup.py` adds the three packages, makes the environment the social media manager runs in, has each environment
-carry the harnesses that run in it and waits for their installs, creates one key per app that can only run turns, and
-writes each app's `.env` (`HG_API`, `HG_KEY`, `HG_MODEL`). The model is `environment/harness/provider/model`, every
-part named: `default/sales-codex/deepseek/deepseek-flash`, `web/social-claude-code/deepseek/deepseek-flash`. A
-request may name a harness only in an environment that carries it.
+`setup.py` adds the three packages, makes the environment each agent runs in (`model-only`, `primary-sources`,
+`web`), has it carry the agent's harness and waits for the installs, creates one key per app that can only run turns,
+and writes each app's `.env` (`HG_API`, `HG_KEY`, `HG_MODEL`). The model is `environment/harness/provider/model`,
+every part named: `model-only/sales-codex/deepseek/deepseek-flash`, `web/social-claude-code/deepseek/deepseek-flash`.
+A request may name a harness only in an environment that carries it.
 
 The apps are standard-library Python servers and plain JavaScript pages, on purpose: nothing hides how the platform is
 used. [`common/hg.py`](common/hg.py) is the whole client.
@@ -68,8 +68,9 @@ platform, and nothing about the CLI is in the app. See [`packages/`](packages/).
   Containers API. No sandbox runs for that.
 - **Output contracts.** Each agent ends its answer with one fenced JSON block (`crm-drafts`, `desk-report`,
   `social-plan`) that its package's instructions define and its app parses.
-- **The sandbox decides what an agent can reach.** The sales agent reaches nothing but its model. The journalist
-  reaches its model and the primary sources its package names. The social media manager runs in an environment that
-  reaches the public web and refuses the social platforms' APIs. All of it is enforced outside the sandbox.
+- **The environment decides what an agent can reach.** A package names no host. The sales agent's environment is
+  closed: it reaches nothing but its model. The journalist's allows its model and the desks' primary sources. The
+  social media manager's reaches the public web and refuses the social platforms' APIs. All of it is enforced
+  outside the sandbox.
 - **No keys in the apps or the sandbox.** An app holds only its own key. The provider's key is put into requests by
   the platform's proxy, on the way out of the sandbox.

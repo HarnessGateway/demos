@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs the Codex CLI at a pinned version under /harness/tools, by its makers' documented method (npm).
+# Installs the Codex CLI at a pinned version under $HG_HARNESS/tools, by its makers' documented method (npm).
 set -eu
 VERSION=0.167.2
 
@@ -10,8 +10,8 @@ for need in node npm python3; do
   }
 done
 
-npm install --prefix /harness/tools --no-audit --no-fund --loglevel=error "@openai/codex@$VERSION"
+npm install --prefix "$HG_HARNESS/tools" --no-audit --no-fund --loglevel=error "@openai/codex@$VERSION"
 
-got=$(/harness/tools/node_modules/.bin/codex --version | awk '{print $NF}')
+got=$("$HG_HARNESS/tools/node_modules/.bin/codex" --version | awk '{print $NF}')
 [ "$got" = "$VERSION" ] || { echo "installed Codex $got, wanted $VERSION" >&2; exit 1; }
 echo "Codex $got installed"

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs Claude Code at a pinned version under /harness/tools, by its makers' documented method (npm).
+# Installs Claude Code at a pinned version under $HG_HARNESS/tools, by its makers' documented method (npm).
 set -eu
 VERSION=2.1.323
 
@@ -10,8 +10,12 @@ for need in node npm python3; do
   }
 done
 
-npm install --prefix /harness/tools --no-audit --no-fund --loglevel=error "@anthropic-ai/claude-code@$VERSION"
+# npm 12 runs no package's install script unless told to, and earlier npm runs every one. Claude Code needs its
+# own, which puts the native binary for this machine in place, so it runs here by name, and no other does.
+npm install --prefix "$HG_HARNESS/tools" --no-audit --no-fund --loglevel=error --ignore-scripts \
+  "@anthropic-ai/claude-code@$VERSION"
+node "$HG_HARNESS/tools/node_modules/@anthropic-ai/claude-code/install.cjs"
 
-got=$(/harness/tools/node_modules/.bin/claude --version | awk '{print $1}')
+got=$("$HG_HARNESS/tools/node_modules/.bin/claude" --version | awk '{print $1}')
 [ "$got" = "$VERSION" ] || { echo "installed Claude Code $got, wanted $VERSION" >&2; exit 1; }
 echo "Claude Code $got installed"
